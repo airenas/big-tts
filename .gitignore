@@ -14,3 +14,6 @@
 # Dependency directories (remove the comment below to include it)
 # vendor/
 .vscode/**
+1.txt
+cmd/upload/__debug_bin
+cmd/upload/local-fs/**

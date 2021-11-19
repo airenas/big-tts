@@ -1,1 +1,4 @@
 port: 8181
+
+fileStorage:
+    path: local-fs/in
