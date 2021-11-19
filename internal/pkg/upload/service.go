@@ -30,7 +30,7 @@ type FileSaver interface {
 }
 
 type MsgSender interface {
-	Send(msg *amessages.QueueMessage, queue string) error
+	Send(msg amessages.Message, queue, replyQueue string) error
 }
 
 type RequestSaver interface {
@@ -161,7 +161,7 @@ func upload(data *Data) func(echo.Context) error {
 		}
 
 		msg := &amessages.QueueMessage{ID: id}
-		err = data.MsgSender.Send(msg, messages.Upload)
+		err = data.MsgSender.Send(msg, messages.Upload, "")
 		if err != nil {
 			goapp.Log.Error(err)
 			return errors.Wrap(err, "can not send msg")

@@ -3,7 +3,7 @@ module github.com/airenas/big-tts
 go 1.17
 
 require (
-	github.com/airenas/async-api v0.0.0-20211119132757-0517c27b270a
+	github.com/airenas/async-api v0.0.0-20211119164915-a41df546adc8
 	github.com/airenas/go-app v0.2.2
 	github.com/facebookgo/grace v0.0.0-20180706040059-75cf19382434
 	github.com/google/uuid v1.1.2
@@ -14,6 +14,7 @@ require (
 )
 
 require (
+	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/golang/snappy v0.0.3 // indirect
 	github.com/klauspost/compress v1.13.6 // indirect
@@ -59,6 +60,7 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.9.0 // indirect
+	github.com/streadway/amqp v1.0.0
 	github.com/subosito/gotenv v1.2.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.1 // indirect

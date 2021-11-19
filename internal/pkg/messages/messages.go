@@ -1,5 +1,5 @@
 package messages
 
 const (
-	Upload = "BigTSS/Upload"
+	Upload = "BigTTS/Upload"
 )

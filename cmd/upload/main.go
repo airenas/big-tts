@@ -3,11 +3,14 @@ package main
 import (
 	"github.com/airenas/async-api/pkg/file"
 	mng "github.com/airenas/async-api/pkg/mongo"
+	"github.com/airenas/async-api/pkg/rabbit"
+	"github.com/airenas/big-tts/internal/pkg/messages"
 	"github.com/airenas/big-tts/internal/pkg/mongo"
 	"github.com/airenas/big-tts/internal/pkg/upload"
 	"github.com/airenas/go-app/pkg/goapp"
 	"github.com/labstack/gommon/color"
 	"github.com/pkg/errors"
+	"github.com/streadway/amqp"
 )
 
 func main() {
@@ -21,7 +24,7 @@ func main() {
 		goapp.Log.Fatal(errors.Wrap(err, "can't init file saver"))
 	}
 
-	mongoSessionProvider, err := mng.NewSessionProvider(goapp.Config.GetString("mongo.url"), nil, "tts")
+	mongoSessionProvider, err := mng.NewSessionProvider(goapp.Config.GetString("mongo.url"), mongo.GetIndexes(), "tts")
 	if err != nil {
 		goapp.Log.Fatal(errors.Wrap(err, "can't init mongo session provider"))
 	}
@@ -32,12 +35,33 @@ func main() {
 		goapp.Log.Fatal(errors.Wrap(err, "can't init mongo request saver"))
 	}
 
+	msgChannelProvider, err := rabbit.NewChannelProvider(goapp.Config.GetString("messageServer.url"),
+		goapp.Config.GetString("messageServer.user"), goapp.Config.GetString("messageServer.pass"))
+	if err != nil {
+		goapp.Log.Fatal(errors.Wrap(err, "can't init rabbitmq channel provider"))
+	}
+	defer msgChannelProvider.Close()
+	err = initQueues(msgChannelProvider)
+	if err != nil {
+		goapp.Log.Fatal(errors.Wrap(err, "can't init queues"))
+	}
+
+	data.MsgSender = rabbit.NewSender(msgChannelProvider)
+
 	printBanner()
 
 	err = upload.StartWebServer(data)
 	if err != nil {
 		goapp.Log.Fatal(errors.Wrap(err, "can't start web server"))
 	}
+}
+
+func initQueues(prv *rabbit.ChannelProvider) error {
+	goapp.Log.Info("Initializing queues")
+	return prv.RunOnChannelWithRetry(func(ch *amqp.Channel) error {
+		_, err := rabbit.DeclareQueue(ch, prv.QueueName(messages.Upload))
+		return err
+	})
 }
 
 var (
