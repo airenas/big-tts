@@ -17,3 +17,4 @@
 1.txt
 cmd/upload/__debug_bin
 cmd/upload/local-fs/**
+sample/docker-compose/data/**
