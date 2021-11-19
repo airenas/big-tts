@@ -53,6 +53,10 @@ func StartWebServer(data *Data) error {
 		return errors.New("no file saver")
 	}
 
+	if (data.ReqSaver == nil) {
+		return errors.New("no request saver")
+	}
+
 	portStr := strconv.Itoa(data.Port)
 
 	e := initRoutes(data)
@@ -148,6 +152,8 @@ func upload(data *Data) func(echo.Context) error {
 			return errors.Wrap(err, "can not save file")
 		}
 
+		inData.ID = id
+		inData.Filename = fileName
 		err = data.ReqSaver.Save(inData)
 		if err != nil {
 			goapp.Log.Error(err)
@@ -167,7 +173,16 @@ func upload(data *Data) func(echo.Context) error {
 }
 
 func getInputData(c echo.Context) (*persistence.ReqData, error) {
-	return nil, nil
+	res := &persistence.ReqData{}
+	res.Email = c.FormValue("email")
+	res.Voice = c.FormValue("voice")
+	var err error
+	sp := c.FormValue("speed")
+	res.Speed, err = strconv.ParseFloat(sp, 64)
+	if (err != nil) {
+		return nil, errors.Wrapf(err, "can't set speed from %s", sp)
+	}
+	return res, nil
 }
 
 func cleanFiles(f *multipart.Form) {

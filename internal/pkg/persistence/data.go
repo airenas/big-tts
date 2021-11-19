@@ -10,4 +10,5 @@ type ReqData struct {
 	Speed        float64
 	OutputFormat string
 	Created      time.Time
+	Email string
 }

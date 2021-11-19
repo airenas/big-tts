@@ -1,11 +1,13 @@
 package main
 
 import (
+	"github.com/airenas/async-api/pkg/file"
+	mng "github.com/airenas/async-api/pkg/mongo"
+	"github.com/airenas/big-tts/internal/pkg/mongo"
 	"github.com/airenas/big-tts/internal/pkg/upload"
 	"github.com/airenas/go-app/pkg/goapp"
-	"github.com/pkg/errors"
 	"github.com/labstack/gommon/color"
-	"github.com/airenas/async-api/pkg/file"
+	"github.com/pkg/errors"
 )
 
 func main() {
@@ -15,8 +17,19 @@ func main() {
 	data.Port = goapp.Config.GetInt("port")
 	var err error
 	data.Saver, err = file.NewLocalSaver(goapp.Config.GetString("fileStorage.path"))
-	if (err != nil) {
+	if err != nil {
 		goapp.Log.Fatal(errors.Wrap(err, "can't init file saver"))
+	}
+
+	mongoSessionProvider, err := mng.NewSessionProvider(goapp.Config.GetString("mongo.url"), nil, "tts")
+	if err != nil {
+		goapp.Log.Fatal(errors.Wrap(err, "can't init mongo session provider"))
+	}
+	defer mongoSessionProvider.Close()
+
+	data.ReqSaver, err = mongo.NewRequestSaver(mongoSessionProvider)
+	if err != nil {
+		goapp.Log.Fatal(errors.Wrap(err, "can't init mongo request saver"))
 	}
 
 	printBanner()

@@ -3,7 +3,7 @@ module github.com/airenas/big-tts
 go 1.17
 
 require (
-	github.com/airenas/async-api v0.0.0-20211119090737-55f02b7fd754
+	github.com/airenas/async-api v0.0.0-20211119132757-0517c27b270a
 	github.com/airenas/go-app v0.2.2
 	github.com/facebookgo/grace v0.0.0-20180706040059-75cf19382434
 	github.com/google/uuid v1.1.2
@@ -11,6 +11,17 @@ require (
 	github.com/labstack/echo/v4 v4.6.1
 	github.com/labstack/gommon v0.3.0
 	github.com/pkg/errors v0.9.1
+)
+
+require (
+	github.com/go-stack/stack v1.8.0 // indirect
+	github.com/golang/snappy v0.0.3 // indirect
+	github.com/klauspost/compress v1.13.6 // indirect
+	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
+	github.com/xdg-go/scram v1.0.2 // indirect
+	github.com/xdg-go/stringprep v1.0.2 // indirect
+	github.com/youmark/pkcs8 v0.0.0-20181117223130-1be2e3e5546d // indirect
+	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
 )
 
 require (
@@ -51,6 +62,7 @@ require (
 	github.com/subosito/gotenv v1.2.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.1 // indirect
+	go.mongodb.org/mongo-driver v1.7.4
 	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5 // indirect
 	golang.org/x/net v0.0.0-20210913180222-943fd674d43e // indirect
 	golang.org/x/sys v0.0.0-20211117180635-dee7805ff2e1 // indirect
