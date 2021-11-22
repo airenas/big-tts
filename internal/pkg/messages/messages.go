@@ -1,5 +1,9 @@
 package messages
 
 const (
-	Upload = "BigTTS/Upload"
+	st = "BigTTS/"
+	Upload = st + "Upload"
+	Split = st + "Split"
+	Synthesize = st + "Sinthesize"
+	Join = st + "Join"
 )

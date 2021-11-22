@@ -64,6 +64,8 @@ github.com/airenas/async-api v0.0.0-20211119132757-0517c27b270a h1:ACqpzc8Yl2dbW
 github.com/airenas/async-api v0.0.0-20211119132757-0517c27b270a/go.mod h1:5/9//QeQHgojL97fpkOFQeXOuHrIWv89slM3rOZ7GaU=
 github.com/airenas/async-api v0.0.0-20211119164915-a41df546adc8 h1:CaMaCTijEv/3P/s5+YHV3SqdmT0sbzRGQyxXPRIqTfw=
 github.com/airenas/async-api v0.0.0-20211119164915-a41df546adc8/go.mod h1:GIlcEC2ECfy5NKdHRMjCDBeUAWr4OfBcvlZQTvfqWRI=
+github.com/airenas/async-api v0.0.0-20211122095028-16c935fa78c8 h1:tgU/iMnrrt0MxeS5jssVn4QArOqGOP23vyMJnBLN7ls=
+github.com/airenas/async-api v0.0.0-20211122095028-16c935fa78c8/go.mod h1:GIlcEC2ECfy5NKdHRMjCDBeUAWr4OfBcvlZQTvfqWRI=
 github.com/airenas/go-app v0.2.2 h1:I2emZMZkYuuHNSDzst2haUNP8rCXuB0LwtKTwCpjqg4=
 github.com/airenas/go-app v0.2.2/go.mod h1:WRCiCel6QTwgnxVvllsDGMkfNt5SwBX5V8H5oFK7TPE=
 github.com/ajstarks/svgo v0.0.0-20180226025133-644b8db467af/go.mod h1:K08gAheRH3/J6wwsYMMT4xOr94bZjxIelGM0+d/wbFw=
