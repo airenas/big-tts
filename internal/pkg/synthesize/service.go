@@ -14,6 +14,10 @@ import (
 	"github.com/streadway/amqp"
 )
 
+type worker interface {
+	Do(ID string) error
+}
+
 type msgSender interface {
 	Send(msg amessages.Message, queue, replyQueue string) error
 }
@@ -30,12 +34,18 @@ type ServiceData struct {
 	UploadCh        <-chan amqp.Delivery
 	SplitCh         <-chan amqp.Delivery
 	SynthesizeCh    <-chan amqp.Delivery
+	JoinCh          <-chan amqp.Delivery
+
+	Splitter    worker
+	Synthesizer worker
+	Joiner      worker
 }
 
 //return true if it can be redelivered
-type prFunc func(d *amqp.Delivery, data *ServiceData) (bool, error)
+type prFunc func(msg *amessages.QueueMessage, data *ServiceData) (bool, error)
 
 //StartWorkerService starts the event queue listener service to listen for events
+// returns
 func StartWorkerService(ctx context.Context, data *ServiceData) (<-chan struct{}, error) {
 	if data.UploadCh == nil {
 		return nil, errors.New("no upload channel provided")
@@ -46,6 +56,9 @@ func StartWorkerService(ctx context.Context, data *ServiceData) (<-chan struct{}
 	if data.SynthesizeCh == nil {
 		return nil, errors.New("no synthesize channel provided")
 	}
+	if data.JoinCh == nil {
+		return nil, errors.New("no join channel provided")
+	}
 	if data.MsgSender == nil {
 		return nil, errors.New("no msgSender")
 	}
@@ -55,13 +68,30 @@ func StartWorkerService(ctx context.Context, data *ServiceData) (<-chan struct{}
 	if data.StatusSaver == nil {
 		return nil, errors.New("no statusSaver")
 	}
+	if data.Splitter == nil {
+		return nil, errors.New("no splitter set")
+	}
+	if data.Synthesizer == nil {
+		return nil, errors.New("no synthesizer set")
+	}
+	if data.Joiner == nil {
+		return nil, errors.New("no joiner set")
+	}
 	goapp.Log.Infof("Starting listen for messages")
 
 	wg := &sync.WaitGroup{}
-
-	go listenQueue(ctx, data.UploadCh, listenUpload, data, wg)
-	go listenQueue(ctx, data.SplitCh, split, data, wg)
-	go listenQueue(ctx, data.SynthesizeCh, synthesize, data, wg)
+	
+	ctxInt, cancelF := context.WithCancel(ctx)
+	cf := func () {
+		cancelF()
+		wg.Done()
+	}
+	
+	wg.Add(4)
+	go listenQueue(ctxInt, data.UploadCh, listenUpload, data, cf)
+	go listenQueue(ctxInt, data.SplitCh, split, data, cf)
+	go listenQueue(ctxInt, data.SynthesizeCh, synthesize, data, cf)
+	go listenQueue(ctxInt, data.JoinCh, join, data, cf)
 
 	return prepareCloseCh(wg), nil
 }
@@ -75,12 +105,12 @@ func prepareCloseCh(wg *sync.WaitGroup) <-chan struct{} {
 	return res
 }
 
-func listenQueue(ctx context.Context, q <-chan amqp.Delivery, f prFunc, data *ServiceData, wg *sync.WaitGroup) {
-	wg.Add(1)
-	defer wg.Done()
+func listenQueue(ctx context.Context, q <-chan amqp.Delivery, f prFunc, data *ServiceData, cancelF func()) {
+	defer cancelF()
 	for {
 		select {
 		case <-ctx.Done():
+			goapp.Log.Infof("Exit queue func")
 			return
 		case d, ok := <-q:
 			{
@@ -88,17 +118,39 @@ func listenQueue(ctx context.Context, q <-chan amqp.Delivery, f prFunc, data *Se
 					goapp.Log.Infof("Stopped listening queue")
 					return
 				}
-				redeliver, err := f(&d, data)
+				err := processMsg(&d, f, data)
 				if err != nil {
-					goapp.Log.Errorf("Can't process message %s\n%s", d.MessageId, string(d.Body))
 					goapp.Log.Error(err)
-					d.Nack(false, redeliver && !d.Redelivered) // redeliver for first time
-				} else {
-					d.Ack(false)
 				}
 			}
 		}
 	}
+}
+
+func processMsg(d *amqp.Delivery, f prFunc, data *ServiceData) error {
+	var message amessages.QueueMessage
+	if err := json.Unmarshal(d.Body, &message); err != nil {
+		d.Nack(false, false)
+		return errors.Wrap(err, "can't unmarshal message "+string(d.Body))
+	}
+	redeliver, err := f(&message, data)
+	if err != nil {
+		goapp.Log.Errorf("Can't process message %s\n%s", d.MessageId, string(d.Body))
+		goapp.Log.Error(err)
+		requeue := redeliver && !d.Redelivered
+		if !requeue {
+			err := data.StatusSaver.Save(message.ID, "", err.Error())
+			if err != nil {
+				goapp.Log.Error(err)
+			}
+			err = data.InformMsgSender.Send(newInformMessage(&message, amessages.InformType_Failed), messages.Inform, "")
+			if err != nil {
+				goapp.Log.Error(err)
+			}
+		}
+		return d.Nack(false, requeue) // redeliver for first time
+	}
+	return d.Ack(false)
 }
 
 //synthesize starts the synthesize process
@@ -106,78 +158,59 @@ func listenQueue(ctx context.Context, q <-chan amqp.Delivery, f prFunc, data *Se
 // 1. set status to WORKING
 // 2. send inform msg
 // 3. Send split msg
-func listenUpload(d *amqp.Delivery, data *ServiceData) (bool, error) {
-	var message amessages.QueueMessage
-	if err := json.Unmarshal(d.Body, &message); err != nil {
-		return false, errors.Wrap(err, "can't unmarshal message "+string(d.Body))
-	}
-
+func listenUpload(message *amessages.QueueMessage, data *ServiceData) (bool, error) {
 	goapp.Log.Infof("Got %s msg :%s", messages.Upload, message.ID)
 	err := data.StatusSaver.Save(message.ID, status.Uploaded.String(), "")
 	if err != nil {
-		goapp.Log.Error(err)
 		return true, err
 	}
-	err = data.InformMsgSender.Send(newInformMessage(&message, amessages.InformType_Started), messages.Inform, "")
+	err = data.InformMsgSender.Send(newInformMessage(message, amessages.InformType_Started), messages.Inform, "")
 	if err != nil {
 		return true, err
 	}
-	return true, data.MsgSender.Send(amessages.NewQueueMessageFromM(&message), messages.Split, "")
+	return true, data.MsgSender.Send(amessages.NewQueueMessageFromM(message), messages.Split, "")
 }
 
-func split(d *amqp.Delivery, data *ServiceData) (bool, error) {
-	var message amessages.QueueMessage
-	if err := json.Unmarshal(d.Body, &message); err != nil {
-		return false, errors.Wrap(err, "can't unmarshal message "+string(d.Body))
-	}
-
+func split(message *amessages.QueueMessage, data *ServiceData) (bool, error) {
 	goapp.Log.Infof("Got %s msg :%s", messages.Split, message.ID)
-	// err := data.StatusSaver.Save(message.ID, status.AudioConvert)
-	// if err != nil {
-	// 	cmdapp.Log.Error(err)
-	// 	return true, err
-	// }
-	// err = data.InformMessageSender.Send(newInformMessage(&message, messages.InformType_Started), messages.Inform, "")
-	// if err != nil {
-	// 	return true, err
-	// }
-	return true, data.MsgSender.Send(amessages.NewQueueMessageFromM(&message), messages.Synthesize, "")
-}
-
-func synthesize(d *amqp.Delivery, data *ServiceData) (bool, error) {
-	var message amessages.QueueMessage
-	if err := json.Unmarshal(d.Body, &message); err != nil {
-		return false, errors.Wrap(err, "can't unmarshal message "+string(d.Body))
+	err := data.StatusSaver.Save(message.ID, status.Split.String(), "")
+	if err != nil {
+		return true, err
 	}
-
-	goapp.Log.Infof("Got %s msg :%s", messages.Synthesize, message.ID)
-	// err := data.StatusSaver.Save(message.ID, status.AudioConvert)
-	// if err != nil {
-	// 	cmdapp.Log.Error(err)
-	// 	return true, err
-	// }
-	// err = data.InformMessageSender.Send(newInformMessage(&message, messages.InformType_Started), messages.Inform, "")
-	// if err != nil {
-	// 	return true, err
-	// }
-	return true, data.MsgSender.Send(amessages.NewQueueMessageFromM(&message), messages.Join, "")
+	resMsg := amessages.NewQueueMessageFromM(message)
+	err = data.Splitter.Do(message.ID)
+	if err != nil {
+		return true, err
+	}
+	return true, data.MsgSender.Send(resMsg, messages.Synthesize, "")
 }
 
-// func sendInformFailure(message *messages.QueueMessage, data *ServiceData) {
-// 	cmdapp.Log.Infof("Trying send inform msg about failure %s", message.ID)
-// 	err := data.InformMessageSender.Send(newInformMessage(message, messages.InformType_Failed), messages.Inform, "")
-// 	cmdapp.LogIf(err)
-// 	if tq, ok := messages.GetTag(message.Tags, messages.TagResultQueue); ok {
-// 		msg := messages.NewQueueMessageFromM(message)
-// 		err := data.MessageSender.Send(msg, tq, "")
-// 		cmdapp.LogIf(err)
-// 	}
-// }
+func synthesize(message *amessages.QueueMessage, data *ServiceData) (bool, error) {
+	goapp.Log.Infof("Got %s msg :%s", messages.Synthesize, message.ID)
+	err := data.StatusSaver.Save(message.ID, status.Synthesize.String(), "")
+	if err != nil {
+		return true, err
+	}
+	resMsg := amessages.NewQueueMessageFromM(message)
+	err = data.Synthesizer.Do(message.ID)
+	if err != nil {
+		return true, err
+	}
+	return true, data.MsgSender.Send(resMsg, messages.Join, "")
+}
 
-// 4. Synthesize all batches
-// 5. Join audio
-// 6. set status to COMPLETED
-// 7. send inform msg
+func join(message *amessages.QueueMessage, data *ServiceData) (bool, error) {
+	goapp.Log.Infof("Got %s msg :%s", messages.Join, message.ID)
+	err := data.StatusSaver.Save(message.ID, status.Join.String(), "")
+	if err != nil {
+		return true, err
+	}
+	err = data.Joiner.Do(message.ID)
+	if err != nil {
+		return true, err
+	}
+	return true, data.InformMsgSender.Send(newInformMessage(message, amessages.InformType_Finished), messages.Inform, "")
+}
 
 func newInformMessage(msg *amessages.QueueMessage, it string) *amessages.InformMessage {
 	return &amessages.InformMessage{QueueMessage: amessages.QueueMessage{ID: msg.ID, Tags: msg.Tags},

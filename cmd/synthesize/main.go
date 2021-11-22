@@ -11,6 +11,7 @@ import (
 	"github.com/airenas/async-api/pkg/rabbit"
 	"github.com/airenas/big-tts/internal/pkg/messages"
 	"github.com/airenas/big-tts/internal/pkg/mongo"
+	"github.com/airenas/big-tts/internal/pkg/splitter"
 	"github.com/airenas/big-tts/internal/pkg/synthesize"
 	"github.com/airenas/go-app/pkg/goapp"
 	"github.com/labstack/gommon/color"
@@ -52,6 +53,9 @@ func main() {
 	if data.SynthesizeCh, err = makeQChannel(ch, msgChannelProvider.QueueName(messages.Synthesize)); err != nil {
 		goapp.Log.Fatal(err)
 	}
+	if data.JoinCh, err = makeQChannel(ch, msgChannelProvider.QueueName(messages.Join)); err != nil {
+		goapp.Log.Fatal(err)
+	}
 
 	data.MsgSender = rabbit.NewSender(msgChannelProvider)
 	data.InformMsgSender = data.MsgSender
@@ -66,6 +70,9 @@ func main() {
 	if err != nil {
 		goapp.Log.Fatal(errors.Wrap(err, "can't init mongo status saver"))
 	}
+	data.Splitter = splitter.NewWorker()
+	data.Synthesizer = splitter.NewWorker()
+	data.Joiner = splitter.NewWorker()
 
 	printBanner()
 
@@ -86,6 +93,7 @@ func main() {
 	cancelFunc()
 	select {
 	case <-doneCh:
+		goapp.Log.Info("All code returned. Now exit. Bye")
 	case <-time.After(time.Second * 10):
 		logrus.Warn("Timeout gracefull shutdown")
 	}
