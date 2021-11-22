@@ -209,6 +209,10 @@ func join(message *amessages.QueueMessage, data *ServiceData) (bool, error) {
 	if err != nil {
 		return true, err
 	}
+	err = data.StatusSaver.Save(message.ID, status.Completed.String(), "")
+	if err != nil {
+		return true, err
+	}
 	return true, data.InformMsgSender.Send(newInformMessage(message, amessages.InformType_Finished), messages.Inform, "")
 }
 
