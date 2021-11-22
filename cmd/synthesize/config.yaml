@@ -1,0 +1,10 @@
+fileStorage:
+    path: local-fs/in
+
+mongo:
+    url: mongodb://tts:---@localhost:27018
+
+messageServer:
+    url: localhost:5673/
+    user: tts
+    pass: ---
