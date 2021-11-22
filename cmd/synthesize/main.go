@@ -7,8 +7,10 @@ import (
 	"syscall"
 	"time"
 
+	mng "github.com/airenas/async-api/pkg/mongo"
 	"github.com/airenas/async-api/pkg/rabbit"
 	"github.com/airenas/big-tts/internal/pkg/messages"
+	"github.com/airenas/big-tts/internal/pkg/mongo"
 	"github.com/airenas/big-tts/internal/pkg/synthesize"
 	"github.com/airenas/go-app/pkg/goapp"
 	"github.com/labstack/gommon/color"
@@ -52,6 +54,18 @@ func main() {
 	}
 
 	data.MsgSender = rabbit.NewSender(msgChannelProvider)
+	data.InformMsgSender = data.MsgSender
+
+	mongoSessionProvider, err := mng.NewSessionProvider(goapp.Config.GetString("mongo.url"), mongo.GetIndexes(), "tts")
+	if err != nil {
+		goapp.Log.Fatal(errors.Wrap(err, "can't init mongo session provider"))
+	}
+	defer mongoSessionProvider.Close()
+
+	data.StatusSaver, err = mongo.NewStatusSaver(mongoSessionProvider)
+	if err != nil {
+		goapp.Log.Fatal(errors.Wrap(err, "can't init mongo status saver"))
+	}
 
 	printBanner()
 
@@ -79,7 +93,7 @@ func main() {
 
 func initQueues(prv *rabbit.ChannelProvider) error {
 	goapp.Log.Info("Initializing queues")
-	for _, n := range [...]string{messages.Split, messages.Synthesize, messages.Upload, messages.Join} {
+	for _, n := range [...]string{messages.Split, messages.Synthesize, messages.Upload, messages.Join, messages.Inform} {
 		err := prv.RunOnChannelWithRetry(func(ch *amqp.Channel) error {
 			_, err := rabbit.DeclareQueue(ch, prv.QueueName(n))
 			return err

@@ -3,6 +3,7 @@ package mongo
 import (
 	mng "github.com/airenas/async-api/pkg/mongo"
 	"github.com/airenas/big-tts/internal/pkg/persistence"
+	"github.com/airenas/big-tts/internal/pkg/status"
 	"github.com/airenas/go-app/pkg/goapp"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -11,11 +12,12 @@ import (
 // RequestSaver saves process request to mongo db
 type RequestSaver struct {
 	SessionProvider *mng.SessionProvider
+	statusSaver *StatusSaver
 }
 
 //NewRequestSaver creates RequestSaver instance
 func NewRequestSaver(sessionProvider *mng.SessionProvider) (*RequestSaver, error) {
-	f := RequestSaver{SessionProvider: sessionProvider}
+	f := RequestSaver{SessionProvider: sessionProvider, statusSaver: &StatusSaver{SessionProvider: sessionProvider}}
 	return &f, nil
 }
 
@@ -29,8 +31,12 @@ func (ss *RequestSaver) Save(data *persistence.ReqData) error {
 	}
 	defer cancel()
 
-	return mng.SkipNoDocErr(c.FindOneAndUpdate(ctx, bson.M{"ID": mng.Sanitize(data.ID)},
+	err = mng.SkipNoDocErr(c.FindOneAndUpdate(ctx, bson.M{"ID": mng.Sanitize(data.ID)},
 		bson.M{"$set": bson.M{"email": data.Email, "voice": data.Voice,
 			"speed": data.Speed, "filename": data.Filename, "outputFormat": data.OutputFormat}},
 		options.FindOneAndUpdate().SetUpsert(true)).Err())
+	if (err != nil) {
+		return err
+	}	
+	return ss.statusSaver.Save(data.ID, status.Uploaded.String(), "")
 }

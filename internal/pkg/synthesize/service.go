@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"sync"
+	"time"
 
 	amessages "github.com/airenas/async-api/pkg/messages"
 	"github.com/airenas/big-tts/internal/pkg/messages"
+	"github.com/airenas/big-tts/internal/pkg/status"
 	"github.com/airenas/go-app/pkg/goapp"
 	"github.com/pkg/errors"
 	"github.com/streadway/amqp"
@@ -16,12 +18,18 @@ type msgSender interface {
 	Send(msg amessages.Message, queue, replyQueue string) error
 }
 
+type statusSaver interface {
+	Save(ID string, status, err string) error
+}
+
 // ServiceData keeps data required for service work
 type ServiceData struct {
-	MsgSender    msgSender
-	UploadCh     <-chan amqp.Delivery
-	SplitCh      <-chan amqp.Delivery
-	SynthesizeCh <-chan amqp.Delivery
+	MsgSender       msgSender
+	InformMsgSender msgSender
+	StatusSaver     statusSaver
+	UploadCh        <-chan amqp.Delivery
+	SplitCh         <-chan amqp.Delivery
+	SynthesizeCh    <-chan amqp.Delivery
 }
 
 //return true if it can be redelivered
@@ -38,7 +46,15 @@ func StartWorkerService(ctx context.Context, data *ServiceData) (<-chan struct{}
 	if data.SynthesizeCh == nil {
 		return nil, errors.New("no synthesize channel provided")
 	}
-
+	if data.MsgSender == nil {
+		return nil, errors.New("no msgSender")
+	}
+	if data.InformMsgSender == nil {
+		return nil, errors.New("no inform msgSender")
+	}
+	if data.StatusSaver == nil {
+		return nil, errors.New("no statusSaver")
+	}
 	goapp.Log.Infof("Starting listen for messages")
 
 	wg := &sync.WaitGroup{}
@@ -97,15 +113,15 @@ func listenUpload(d *amqp.Delivery, data *ServiceData) (bool, error) {
 	}
 
 	goapp.Log.Infof("Got %s msg :%s", messages.Upload, message.ID)
-	// err := data.StatusSaver.Save(message.ID, status.AudioConvert)
-	// if err != nil {
-	// 	cmdapp.Log.Error(err)
-	// 	return true, err
-	// }
-	// err = data.InformMessageSender.Send(newInformMessage(&message, messages.InformType_Started), messages.Inform, "")
-	// if err != nil {
-	// 	return true, err
-	// }
+	err := data.StatusSaver.Save(message.ID, status.Uploaded.String(), "")
+	if err != nil {
+		goapp.Log.Error(err)
+		return true, err
+	}
+	err = data.InformMsgSender.Send(newInformMessage(&message, amessages.InformType_Started), messages.Inform, "")
+	if err != nil {
+		return true, err
+	}
 	return true, data.MsgSender.Send(amessages.NewQueueMessageFromM(&message), messages.Split, "")
 }
 
@@ -162,3 +178,8 @@ func synthesize(d *amqp.Delivery, data *ServiceData) (bool, error) {
 // 5. Join audio
 // 6. set status to COMPLETED
 // 7. send inform msg
+
+func newInformMessage(msg *amessages.QueueMessage, it string) *amessages.InformMessage {
+	return &amessages.InformMessage{QueueMessage: amessages.QueueMessage{ID: msg.ID, Tags: msg.Tags},
+		Type: it, At: time.Now().UTC()}
+}
