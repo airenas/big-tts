@@ -76,7 +76,9 @@ func main() {
 	if err != nil {
 		goapp.Log.Fatal(errors.Wrap(err, "can't init splitter"))
 	}
-	data.Synthesizer, err = sythesizer.NewWorker()
+	data.Synthesizer, err = sythesizer.NewWorker(goapp.Config.GetString("splitter.outTemplate"), 
+		goapp.Config.GetString("synthesizer.outTemplate"),
+		goapp.Config.GetString("synthesizer.URL"))
 	if err != nil {
 		goapp.Log.Fatal(errors.Wrap(err, "can't init synthesizer"))
 	}

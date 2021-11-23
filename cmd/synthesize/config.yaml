@@ -12,4 +12,7 @@ messageServer:
 splitter:
     inTemplate: ../upload/local-fs/in/{}.txt
     outTemplate: ../upload/local-fs/work/{}/split
-    
+
+synthesizer:
+    url:  https://sinteze.intelektika.lt/synthesis.service/astra/synthesize 
+    outTemplate: ../upload/local-fs/work/{}/audio    
