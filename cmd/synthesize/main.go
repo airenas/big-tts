@@ -9,6 +9,7 @@ import (
 
 	mng "github.com/airenas/async-api/pkg/mongo"
 	"github.com/airenas/async-api/pkg/rabbit"
+	"github.com/airenas/big-tts/internal/pkg/joiner"
 	"github.com/airenas/big-tts/internal/pkg/messages"
 	"github.com/airenas/big-tts/internal/pkg/mongo"
 	"github.com/airenas/big-tts/internal/pkg/splitter"
@@ -76,13 +77,17 @@ func main() {
 	if err != nil {
 		goapp.Log.Fatal(errors.Wrap(err, "can't init splitter"))
 	}
-	data.Synthesizer, err = sythesizer.NewWorker(goapp.Config.GetString("splitter.outTemplate"), 
+	data.Synthesizer, err = sythesizer.NewWorker(goapp.Config.GetString("splitter.outTemplate"),
 		goapp.Config.GetString("synthesizer.outTemplate"),
 		goapp.Config.GetString("synthesizer.URL"))
 	if err != nil {
 		goapp.Log.Fatal(errors.Wrap(err, "can't init synthesizer"))
 	}
-	data.Joiner = data.Splitter
+	data.Joiner, err = joiner.NewWorker(goapp.Config.GetString("synthesizer.outTemplate"),
+		goapp.Config.GetString("joiner.outTemplate"))
+	if err != nil {
+		goapp.Log.Fatal(errors.Wrap(err, "can't init joiner"))
+	}
 
 	printBanner()
 
