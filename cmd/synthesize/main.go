@@ -13,6 +13,7 @@ import (
 	"github.com/airenas/big-tts/internal/pkg/mongo"
 	"github.com/airenas/big-tts/internal/pkg/splitter"
 	"github.com/airenas/big-tts/internal/pkg/synthesize"
+	"github.com/airenas/big-tts/internal/pkg/sythesizer"
 	"github.com/airenas/go-app/pkg/goapp"
 	"github.com/labstack/gommon/color"
 	"github.com/pkg/errors"
@@ -70,9 +71,16 @@ func main() {
 	if err != nil {
 		goapp.Log.Fatal(errors.Wrap(err, "can't init mongo status saver"))
 	}
-	data.Splitter = splitter.NewWorker()
-	data.Synthesizer = splitter.NewWorker()
-	data.Joiner = splitter.NewWorker()
+	data.Splitter, err = splitter.NewWorker(goapp.Config.GetString("splitter.inTemplate"),
+		goapp.Config.GetString("splitter.outTemplate"))
+	if err != nil {
+		goapp.Log.Fatal(errors.Wrap(err, "can't init splitter"))
+	}
+	data.Synthesizer, err = sythesizer.NewWorker()
+	if err != nil {
+		goapp.Log.Fatal(errors.Wrap(err, "can't init synthesizer"))
+	}
+	data.Joiner = data.Splitter
 
 	printBanner()
 

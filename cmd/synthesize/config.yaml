@@ -8,3 +8,8 @@ messageServer:
     url: localhost:5673/
     user: tts
     pass: ---
+
+splitter:
+    inTemplate: ../upload/local-fs/in/{}.txt
+    outTemplate: ../upload/local-fs/work/{}/split
+    
