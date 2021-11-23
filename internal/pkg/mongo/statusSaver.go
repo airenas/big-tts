@@ -32,7 +32,11 @@ func (ss *StatusSaver) Save(ID string, st, errStr string) error {
 	if errStr == "" {
 		bu = bson.M{"error": 1}
 	} else {
-		bs = bson.M{"status": st, "error": errStr}
+		if (st != ""){
+			bs = bson.M{"status": st, "error": errStr}
+		} else {
+			bs = bson.M{"error": errStr}
+		}
 	}
 	return mng.SkipNoDocErr(c.FindOneAndUpdate(ctx, bson.M{"ID": mng.Sanitize(ID)},
 		bson.M{"$set": bs, "$unset": bu},
