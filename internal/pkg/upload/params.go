@@ -15,7 +15,7 @@ import (
 const (
 	headerDefaultFormat = "x-tts-default-output-format"
 	headerCollectData   = "x-tts-collect-data"
-	headerSaveTags      = "x-tts-save-tags"
+	HeaderSaveTags      = "x-tts-save-tags"
 )
 
 //TTSConfigutaror tts request configuration
@@ -59,7 +59,7 @@ func (c *TTSConfigutaror) Configure(e echo.Context) (*persistence.ReqData, error
 	if err != nil {
 		return nil, err
 	}
-	res.SaveTags = getSaveTags(getHeader(r, headerSaveTags))
+	res.SaveTags = getSaveTags(getHeader(r, HeaderSaveTags))
 
 	res.Speed, err = getSpeed(e.FormValue("speed"))
 	if err != nil {

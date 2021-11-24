@@ -1,7 +1,6 @@
 package upload
 
 import (
-	"fmt"
 	"io"
 	"log"
 	"mime/multipart"
@@ -162,12 +161,14 @@ func upload(data *Data) func(echo.Context) error {
 			return errors.Wrap(err, "can not save request")
 		}
 
-		msg := &amessages.QueueMessage{ID: id}
-		msg.Tags = append(msg.Tags, newTag(messages.Voice, inData.Voice))
-		msg.Tags = append(msg.Tags, newTag(messages.Speed, fmt.Sprintf("%.2f", inData.Speed)))
-		msg.Tags = append(msg.Tags, newTag(messages.Format, inData.OutputFormat))
-		msg.Tags = append(msg.Tags, newTag(messages.SaveRequest, fmt.Sprintf("%v", inData.SaveRequest)))
-		msg.Tags = append(msg.Tags, newTag(messages.SaveTags, strings.Join(inData.SaveTags, ",")))
+		msg := &messages.TTSMessage{
+			QueueMessage: amessages.QueueMessage{ID: id},
+			Voice:        inData.Voice,
+			SaveRequest:  inData.SaveRequest,
+			Speed:        inData.Speed,
+			OutputFormat: inData.OutputFormat,
+			SaveTags:     inData.SaveTags,
+		}
 		err = data.MsgSender.Send(msg, messages.Upload, "")
 		if err != nil {
 			goapp.Log.Error(err)
@@ -177,10 +178,6 @@ func upload(data *Data) func(echo.Context) error {
 		res := result{ID: id}
 		return c.JSON(http.StatusOK, res)
 	}
-}
-
-func newTag(k messages.TagsType, v string) amessages.Tag {
-	return amessages.Tag{Key: k.Name(), Value: v}
 }
 
 func getInputData(c echo.Context, cfg *TTSConfigutaror) (*persistence.ReqData, error) {

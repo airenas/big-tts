@@ -12,7 +12,7 @@ import (
 // RequestSaver saves process request to mongo db
 type RequestSaver struct {
 	SessionProvider *mng.SessionProvider
-	statusSaver *StatusSaver
+	statusSaver     *StatusSaver
 }
 
 //NewRequestSaver creates RequestSaver instance
@@ -33,10 +33,11 @@ func (ss *RequestSaver) Save(data *persistence.ReqData) error {
 
 	err = mng.SkipNoDocErr(c.FindOneAndUpdate(ctx, bson.M{"ID": mng.Sanitize(data.ID)},
 		bson.M{"$set": bson.M{"email": data.Email, "voice": data.Voice,
-			"speed": data.Speed, "filename": data.Filename, "outputFormat": data.OutputFormat}},
+			"speed": data.Speed, "filename": data.Filename, "outputFormat": data.OutputFormat,
+			"saveRequest": data.SaveRequest}},
 		options.FindOneAndUpdate().SetUpsert(true)).Err())
-	if (err != nil) {
+	if err != nil {
 		return err
-	}	
+	}
 	return ss.statusSaver.Save(data.ID, status.Uploaded.String(), "")
 }

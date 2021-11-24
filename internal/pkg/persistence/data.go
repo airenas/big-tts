@@ -10,6 +10,6 @@ type ReqData struct {
 	Speed        float64
 	OutputFormat string
 	Created      time.Time
-	Email string
-	SaveTags []string
+	Email        string
+	SaveTags     []string
 }

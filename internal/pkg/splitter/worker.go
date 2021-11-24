@@ -8,6 +8,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/airenas/big-tts/internal/pkg/messages"
 	"github.com/airenas/big-tts/internal/pkg/utils"
 	"github.com/airenas/go-app/pkg/goapp"
 	"github.com/pkg/errors"
@@ -38,9 +39,9 @@ func NewWorker(loadPath string, savePath string) (*Worker, error) {
 	return res, nil
 }
 
-func (w *Worker) Do(ID string) error {
-	goapp.Log.Infof("Doing split job for %s", ID)
-	text, err := w.load(ID)
+func (w *Worker) Do(msg *messages.TTSMessage) error {
+	goapp.Log.Infof("Doing split job for %s", msg.ID)
+	text, err := w.load(msg.ID)
 	if err != nil {
 		return errors.Wrapf(err, "can't load text")
 	}
@@ -48,7 +49,7 @@ func (w *Worker) Do(ID string) error {
 	if err != nil {
 		return errors.Wrapf(err, "can't split text")
 	}
-	err = w.save(ID, texts)
+	err = w.save(msg.ID, texts)
 	if err != nil {
 		return errors.Wrapf(err, "can't save texts")
 	}

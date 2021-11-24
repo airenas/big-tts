@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/airenas/big-tts/internal/pkg/messages"
+	"github.com/airenas/big-tts/internal/pkg/upload"
 	"github.com/airenas/big-tts/internal/pkg/utils"
 	"github.com/airenas/go-app/pkg/goapp"
 	"github.com/pkg/errors"
@@ -27,7 +29,7 @@ type Worker struct {
 	saveFunc      func(string, []byte) error
 	createDirFunc func(string) error
 	existsFunc    func(string) bool
-	callFunc      func(string) ([]byte, error)
+	callFunc      func(string, *messages.TTSMessage) ([]byte, error)
 }
 
 func NewWorker(inTemplate, outTemplate string, url string) (*Worker, error) {
@@ -49,16 +51,16 @@ func NewWorker(inTemplate, outTemplate string, url string) (*Worker, error) {
 	return res, nil
 }
 
-func (w *Worker) Do(ID string) error {
-	goapp.Log.Infof("Doing synthesize job for %s", ID)
+func (w *Worker) Do(msg *messages.TTSMessage) error {
+	goapp.Log.Infof("Doing synthesize job for %s", msg.ID)
 	var err error
-	outDir := strings.ReplaceAll(w.outDir, "{}", ID)
+	outDir := strings.ReplaceAll(w.outDir, "{}", msg.ID)
 	if err := w.createDirFunc(outDir); err != nil {
 		return errors.Wrapf(err, "can't create %s", outDir)
 	}
 	stop := false
 	for i := 0; !stop; i++ {
-		stop, err = w.processFile(i, ID)
+		stop, err = w.processFile(i, msg)
 		if err != nil {
 			return err
 		}
@@ -66,25 +68,25 @@ func (w *Worker) Do(ID string) error {
 	return nil
 }
 
-func (w *Worker) processFile(num int, ID string) (bool, error) {
-	inFile := filepath.Join(strings.ReplaceAll(w.inDir, "{}", ID), fmt.Sprintf("%04d.txt", num))
-	outDir := strings.ReplaceAll(w.outDir, "{}", ID)
-	outFile := filepath.Join(outDir, fmt.Sprintf("%04d.m4a", num))
+func (w *Worker) processFile(num int, msg *messages.TTSMessage) (bool, error) {
+	inFile := filepath.Join(strings.ReplaceAll(w.inDir, "{}", msg.ID), fmt.Sprintf("%04d.txt", num))
+	outDir := strings.ReplaceAll(w.outDir, "{}", msg.ID)
+	outFile := filepath.Join(outDir, fmt.Sprintf("%04d.%s", num, msg.OutputFormat))
 	if !w.existsFunc(inFile) {
 		return true, nil
 	}
 	if w.existsFunc(outFile) {
 		return false, nil
 	}
-	return false, w.invoke(inFile, outFile)
+	return false, w.invoke(inFile, outFile, msg)
 }
 
-func (w *Worker) invoke(inFile string, outFile string) error {
+func (w *Worker) invoke(inFile string, outFile string, msg *messages.TTSMessage) error {
 	text, err := w.loadFunc(inFile)
 	if err != nil {
 		return err
 	}
-	bytes, err := w.callFunc(string(text))
+	bytes, err := w.callFunc(string(text), msg)
 	if err != nil {
 		return err
 	}
@@ -108,17 +110,20 @@ type (
 	}
 )
 
-func (w *Worker) invokeService(data string) ([]byte, error) {
-	inp := input{Text: data, OutputFormat: "m4a", Voice: "astra"}
+func (w *Worker) invokeService(data string, msg *messages.TTSMessage) ([]byte, error) {
+	inp := input{Text: data, OutputFormat: msg.OutputFormat,
+		Voice:            msg.Voice,
+		Speed:            float32(msg.Speed),
+		AllowCollectData: &msg.SaveRequest}
 	var out result
-	err := invoke(w.serviceURL, inp, &out)
-	if (err != nil) {
+	err := invoke(w.serviceURL, inp, &out, msg.SaveTags)
+	if err != nil {
 		return nil, err
 	}
 	return base64.StdEncoding.DecodeString(out.AudioAsString)
 }
 
-func invoke(URL string, dataIn input, dataOut *result) error {
+func invoke(URL string, dataIn input, dataOut *result, saveTags []string) error {
 	b := new(bytes.Buffer)
 	enc := json.NewEncoder(b)
 	enc.SetEscapeHTML(false)
@@ -131,8 +136,11 @@ func invoke(URL string, dataIn input, dataOut *result) error {
 		return errors.Wrapf(err, "can't prepare request to '%s'", URL)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	if len(saveTags) > 0 {
+		req.Header.Set(upload.HeaderSaveTags, strings.Join(saveTags, ","))
+	}
 
-	ctx, cancelF := context.WithTimeout(context.Background(), time.Minute * 10)
+	ctx, cancelF := context.WithTimeout(context.Background(), time.Minute*10)
 	defer cancelF()
 	req = req.WithContext(ctx)
 	goapp.Log.Info("Call : ", req.URL.String())

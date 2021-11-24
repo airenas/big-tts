@@ -15,7 +15,7 @@ import (
 )
 
 type worker interface {
-	Do(ID string) error
+	Do(*messages.TTSMessage) error
 }
 
 type msgSender interface {
@@ -42,7 +42,7 @@ type ServiceData struct {
 }
 
 //return true if it can be redelivered
-type prFunc func(msg *amessages.QueueMessage, data *ServiceData) (bool, error)
+type prFunc func(msg *messages.TTSMessage, data *ServiceData) (bool, error)
 
 //StartWorkerService starts the event queue listener service to listen for events
 // returns
@@ -80,13 +80,13 @@ func StartWorkerService(ctx context.Context, data *ServiceData) (<-chan struct{}
 	goapp.Log.Infof("Starting listen for messages")
 
 	wg := &sync.WaitGroup{}
-	
+
 	ctxInt, cancelF := context.WithCancel(ctx)
-	cf := func () {
+	cf := func() {
 		cancelF()
 		wg.Done()
 	}
-	
+
 	wg.Add(4)
 	go listenQueue(ctxInt, data.UploadCh, listenUpload, data, cf)
 	go listenQueue(ctxInt, data.SplitCh, split, data, cf)
@@ -128,7 +128,7 @@ func listenQueue(ctx context.Context, q <-chan amqp.Delivery, f prFunc, data *Se
 }
 
 func processMsg(d *amqp.Delivery, f prFunc, data *ServiceData) error {
-	var message amessages.QueueMessage
+	var message messages.TTSMessage
 	if err := json.Unmarshal(d.Body, &message); err != nil {
 		d.Nack(false, false)
 		return errors.Wrap(err, "can't unmarshal message "+string(d.Body))
@@ -158,7 +158,7 @@ func processMsg(d *amqp.Delivery, f prFunc, data *ServiceData) error {
 // 1. set status to WORKING
 // 2. send inform msg
 // 3. Send split msg
-func listenUpload(message *amessages.QueueMessage, data *ServiceData) (bool, error) {
+func listenUpload(message *messages.TTSMessage, data *ServiceData) (bool, error) {
 	goapp.Log.Infof("Got %s msg :%s", messages.Upload, message.ID)
 	err := data.StatusSaver.Save(message.ID, status.Uploaded.String(), "")
 	if err != nil {
@@ -168,44 +168,44 @@ func listenUpload(message *amessages.QueueMessage, data *ServiceData) (bool, err
 	if err != nil {
 		return true, err
 	}
-	return true, data.MsgSender.Send(amessages.NewQueueMessageFromM(message), messages.Split, "")
+	return true, data.MsgSender.Send(messages.NewMessageFrom(message), messages.Split, "")
 }
 
-func split(message *amessages.QueueMessage, data *ServiceData) (bool, error) {
+func split(message *messages.TTSMessage, data *ServiceData) (bool, error) {
 	goapp.Log.Infof("Got %s msg :%s", messages.Split, message.ID)
 	err := data.StatusSaver.Save(message.ID, status.Split.String(), "")
 	if err != nil {
 		return true, err
 	}
-	resMsg := amessages.NewQueueMessageFromM(message)
-	err = data.Splitter.Do(message.ID)
+	resMsg := messages.NewMessageFrom(message)
+	err = data.Splitter.Do(message)
 	if err != nil {
 		return true, err
 	}
 	return true, data.MsgSender.Send(resMsg, messages.Synthesize, "")
 }
 
-func synthesize(message *amessages.QueueMessage, data *ServiceData) (bool, error) {
+func synthesize(message *messages.TTSMessage, data *ServiceData) (bool, error) {
 	goapp.Log.Infof("Got %s msg :%s", messages.Synthesize, message.ID)
 	err := data.StatusSaver.Save(message.ID, status.Synthesize.String(), "")
 	if err != nil {
 		return true, err
 	}
-	resMsg := amessages.NewQueueMessageFromM(message)
-	err = data.Synthesizer.Do(message.ID)
+	resMsg := messages.NewMessageFrom(message)
+	err = data.Synthesizer.Do(message)
 	if err != nil {
 		return true, err
 	}
 	return true, data.MsgSender.Send(resMsg, messages.Join, "")
 }
 
-func join(message *amessages.QueueMessage, data *ServiceData) (bool, error) {
+func join(message *messages.TTSMessage, data *ServiceData) (bool, error) {
 	goapp.Log.Infof("Got %s msg :%s", messages.Join, message.ID)
 	err := data.StatusSaver.Save(message.ID, status.Join.String(), "")
 	if err != nil {
 		return true, err
 	}
-	err = data.Joiner.Do(message.ID)
+	err = data.Joiner.Do(message)
 	if err != nil {
 		return true, err
 	}
@@ -216,7 +216,7 @@ func join(message *amessages.QueueMessage, data *ServiceData) (bool, error) {
 	return true, data.InformMsgSender.Send(newInformMessage(message, amessages.InformType_Finished), messages.Inform, "")
 }
 
-func newInformMessage(msg *amessages.QueueMessage, it string) *amessages.InformMessage {
+func newInformMessage(msg *messages.TTSMessage, it string) *amessages.InformMessage {
 	return &amessages.InformMessage{QueueMessage: amessages.QueueMessage{ID: msg.ID, Tags: msg.Tags},
 		Type: it, At: time.Now().UTC()}
 }

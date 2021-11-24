@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/airenas/big-tts/internal/pkg/messages"
 	"github.com/airenas/big-tts/internal/pkg/utils"
 	"github.com/airenas/go-app/pkg/goapp"
 	"github.com/pkg/errors"
@@ -24,7 +25,7 @@ type Worker struct {
 	convertFunc   func([]string) error
 }
 
-func NewWorker(inDir string, savePath string, metadata[]string) (*Worker, error) {
+func NewWorker(inDir string, savePath string, metadata []string) (*Worker, error) {
 	if !strings.Contains(inDir, "{}") {
 		return nil, errors.Errorf("no ID template in inDir")
 	}
@@ -41,13 +42,13 @@ func NewWorker(inDir string, savePath string, metadata[]string) (*Worker, error)
 	return res, nil
 }
 
-func (w *Worker) Do(ID string) error {
-	goapp.Log.Infof("Doing join job for %s", ID)
-	files, err := w.makeList(ID)
+func (w *Worker) Do(msg *messages.TTSMessage) error {
+	goapp.Log.Infof("Doing join job for %s", msg.ID)
+	files, err := w.makeList(msg.ID)
 	if err != nil {
 		return errors.Wrapf(err, "can't prepare files list")
 	}
-	path := strings.ReplaceAll(w.savePath, "{}", ID)
+	path := strings.ReplaceAll(w.savePath, "{}", msg.ID)
 	err = w.createDirFunc(path)
 	if err != nil {
 		return errors.Wrapf(err, "can't create %s", path)
