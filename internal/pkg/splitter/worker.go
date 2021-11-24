@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode"
 
 	"github.com/airenas/big-tts/internal/pkg/utils"
 	"github.com/airenas/go-app/pkg/goapp"
@@ -19,6 +20,7 @@ type Worker struct {
 	loadFunc      func(string) ([]byte, error)
 	saveFunc      func(string, []byte) error
 	createDirFunc func(string) error
+	wantedChars   int
 }
 
 func NewWorker(loadPath string, savePath string) (*Worker, error) {
@@ -32,6 +34,7 @@ func NewWorker(loadPath string, savePath string) (*Worker, error) {
 	res.loadFunc = ioutil.ReadFile
 	res.saveFunc = utils.WriteFile
 	res.createDirFunc = func(name string) error { return os.MkdirAll(name, os.ModePerm) }
+	res.wantedChars = 1900
 	return res, nil
 }
 
@@ -63,13 +66,69 @@ func (w *Worker) load(ID string) (string, error) {
 
 func (w *Worker) split(text string) ([]string, error) {
 	var res []string
-	for _, s := range strings.Split(text, "\n") {
-		st := strings.TrimSpace(s)
-		if (st != ""){
-			res = append(res, st)
+	rns := []rune(text)
+	for len(rns) > 0 {
+		pos, err := getNextSplit(rns, w.wantedChars, w.wantedChars/4)
+		if err != nil {
+			return nil, err
 		}
+		res = append(res, string(rns[:pos]))
+		rns = rns[pos:]
 	}
 	return res, nil
+}
+
+func getNextSplit(rns []rune, start, interval int) (int, error) {
+	l := len(rns)
+	if l < (start + interval) {
+		return l, nil
+	}
+
+	s := "   "
+	best := -1
+	bestV := 0
+	for i := 0; i < interval; i++ {
+		r := rns[start+i]
+		s = getNewPattern(s, r)
+		if s == ".\n\n" || s == "\n\n\n" {
+			return start + i, nil
+		} else if s == ".\nU" {
+			best = start + i - 1
+			bestV = 3
+		} else if (s == ". U") && bestV < 2 {
+			best = start + i - 1
+			bestV = 2
+		} else if (r == ' ') && bestV < 1 {
+			best = start + i
+			bestV = 1
+		}
+	}
+	if best > 0 {
+		return best, nil
+	}
+	return 0, errors.New("no split position found")
+}
+
+func getNewPattern(str string, r rune) string {
+	if r == '\n' && str[1] == '.' && str[2] == ' ' {
+		return str[:2] + "\n"
+	}
+	if r == '\n' {
+		return str[1:] + "\n"
+	}
+	if r == '.' {
+		return str[1:] + "."
+	}
+	if unicode.IsSpace(r) || r == '\t' {
+		if str[2] == ' ' || str[2] == '\n' {
+			return str
+		}
+		return str[1:] + " "
+	}
+	if unicode.IsUpper(r) {
+		return str[1:] + "U"
+	}
+	return str[1:] + "-"
 }
 
 func (w *Worker) save(ID string, texts []string) error {
@@ -87,5 +146,3 @@ func (w *Worker) save(ID string, texts []string) error {
 	}
 	return nil
 }
-
-

@@ -69,7 +69,7 @@ func (w *Worker) Do(ID string) error {
 func (w *Worker) processFile(num int, ID string) (bool, error) {
 	inFile := filepath.Join(strings.ReplaceAll(w.inDir, "{}", ID), fmt.Sprintf("%04d.txt", num))
 	outDir := strings.ReplaceAll(w.outDir, "{}", ID)
-	outFile := filepath.Join(outDir, fmt.Sprintf("%04d.mp3", num))
+	outFile := filepath.Join(outDir, fmt.Sprintf("%04d.m4a", num))
 	if !w.existsFunc(inFile) {
 		return true, nil
 	}
@@ -109,7 +109,7 @@ type (
 )
 
 func (w *Worker) invokeService(data string) ([]byte, error) {
-	inp := input{Text: data, OutputFormat: "mp3", Voice: "astra"}
+	inp := input{Text: data, OutputFormat: "m4a", Voice: "astra"}
 	var out result
 	err := invoke(w.serviceURL, inp, &out)
 	if (err != nil) {

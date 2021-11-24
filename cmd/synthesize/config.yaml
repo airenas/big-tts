@@ -19,3 +19,7 @@ synthesizer:
 
 joiner:
     outTemplate: ../upload/local-fs/work/{}/result
+    metadata:
+      - copyright=UAB Intelektika
+      - description=encoded by UAB Intelektika
+      

@@ -84,7 +84,8 @@ func main() {
 		goapp.Log.Fatal(errors.Wrap(err, "can't init synthesizer"))
 	}
 	data.Joiner, err = joiner.NewWorker(goapp.Config.GetString("synthesizer.outTemplate"),
-		goapp.Config.GetString("joiner.outTemplate"))
+		goapp.Config.GetString("joiner.outTemplate"),
+		goapp.Config.GetStringSlice("joiner.metadata"))
 	if err != nil {
 		goapp.Log.Fatal(errors.Wrap(err, "can't init joiner"))
 	}
