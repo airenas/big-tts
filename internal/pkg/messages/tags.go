@@ -9,17 +9,20 @@ const (
 	Filename
 	Voice
 	Speed
+	Format
+	SaveRequest
+	SaveTags
 )
 
 var (
 	tagsName = map[TagsType]string{Undefined: "Undefined", Created: "Created",
 		Filename: "Filename", Voice: "Voice",
-		Speed: "Speed"}
+		Speed: "Speed", Format: "Format", SaveRequest: "SaveRequest", SaveTags: "SaveTags"}
 	nameTags = map[string]TagsType{"Created": Created, "Filename": Filename,
-		"Voice": Voice, "Speed": Speed}
+		"Voice": Voice, "Speed": Speed, "Format": Format, "SaveRequest": SaveRequest, "SaveTags": SaveTags}
 )
 
-func Name(st TagsType) string {
+func (st TagsType) Name() string {
 	return tagsName[st]
 }
 

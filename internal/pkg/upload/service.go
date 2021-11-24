@@ -1,6 +1,7 @@
 package upload
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"mime/multipart"
@@ -39,22 +40,22 @@ type RequestSaver interface {
 
 // Data keeps data required for service work
 type Data struct {
-	Port     int
+	Port         int
 	Configurator *TTSConfigutaror
-	Saver    FileSaver
-	ReqSaver RequestSaver
-	MsgSender MsgSender
+	Saver        FileSaver
+	ReqSaver     RequestSaver
+	MsgSender    MsgSender
 }
 
 //StartWebServer starts echo web service
 func StartWebServer(data *Data) error {
 	goapp.Log.Infof("Starting HTTP BIG TTS Line service at %d", data.Port)
 
-	if (data.Saver == nil) {
+	if data.Saver == nil {
 		return errors.New("no file saver")
 	}
 
-	if (data.ReqSaver == nil) {
+	if data.ReqSaver == nil {
 		return errors.New("no request saver")
 	}
 
@@ -162,6 +163,11 @@ func upload(data *Data) func(echo.Context) error {
 		}
 
 		msg := &amessages.QueueMessage{ID: id}
+		msg.Tags = append(msg.Tags, newTag(messages.Voice, inData.Voice))
+		msg.Tags = append(msg.Tags, newTag(messages.Speed, fmt.Sprintf("%.2f", inData.Speed)))
+		msg.Tags = append(msg.Tags, newTag(messages.Format, inData.OutputFormat))
+		msg.Tags = append(msg.Tags, newTag(messages.SaveRequest, fmt.Sprintf("%v", inData.SaveRequest)))
+		msg.Tags = append(msg.Tags, newTag(messages.SaveTags, strings.Join(inData.SaveTags, ",")))
 		err = data.MsgSender.Send(msg, messages.Upload, "")
 		if err != nil {
 			goapp.Log.Error(err)
@@ -171,6 +177,10 @@ func upload(data *Data) func(echo.Context) error {
 		res := result{ID: id}
 		return c.JSON(http.StatusOK, res)
 	}
+}
+
+func newTag(k messages.TagsType, v string) amessages.Tag {
+	return amessages.Tag{Key: k.Name(), Value: v}
 }
 
 func getInputData(c echo.Context, cfg *TTSConfigutaror) (*persistence.ReqData, error) {
