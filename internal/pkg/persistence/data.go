@@ -11,4 +11,5 @@ type ReqData struct {
 	OutputFormat string
 	Created      time.Time
 	Email string
+	SaveTags []string
 }

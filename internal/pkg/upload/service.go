@@ -40,6 +40,7 @@ type RequestSaver interface {
 // Data keeps data required for service work
 type Data struct {
 	Port     int
+	Configurator *TTSConfigutaror
 	Saver    FileSaver
 	ReqSaver RequestSaver
 	MsgSender MsgSender
@@ -110,10 +111,10 @@ func upload(data *Data) func(echo.Context) error {
 	return func(c echo.Context) error {
 		defer goapp.Estimate("upload method")()
 
-		inData, err := getInputData(c)
+		inData, err := getInputData(c, data.Configurator)
 		if err != nil {
 			goapp.Log.Error(err)
-			return err
+			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 		}
 
 		form, err := c.MultipartForm()
@@ -172,17 +173,8 @@ func upload(data *Data) func(echo.Context) error {
 	}
 }
 
-func getInputData(c echo.Context) (*persistence.ReqData, error) {
-	res := &persistence.ReqData{}
-	res.Email = c.FormValue("email")
-	res.Voice = c.FormValue("voice")
-	var err error
-	sp := c.FormValue("speed")
-	res.Speed, err = strconv.ParseFloat(sp, 64)
-	if (err != nil) {
-		return nil, errors.Wrapf(err, "can't set speed from %s", sp)
-	}
-	return res, nil
+func getInputData(c echo.Context, cfg *TTSConfigutaror) (*persistence.ReqData, error) {
+	return cfg.Configure(c)
 }
 
 func cleanFiles(f *multipart.Form) {

@@ -15,16 +15,22 @@ import (
 
 func main() {
 	goapp.StartWithDefault()
-
+	cfg := goapp.Config
 	data := &upload.Data{}
-	data.Port = goapp.Config.GetInt("port")
+	data.Port = cfg.GetInt("port")
 	var err error
-	data.Saver, err = file.NewLocalSaver(goapp.Config.GetString("fileStorage.path"))
+	data.Configurator, err = upload.NewTTSConfigurator(cfg.GetString("synthesis.defaultFormat"),
+		cfg.GetString("synthesis.defaultVoice"), cfg.GetStringSlice("synthesis.voices"))
+	if err != nil {
+		goapp.Log.Fatal(errors.Wrap(err, "can't init configuration"))
+	}
+
+	data.Saver, err = file.NewLocalSaver(cfg.GetString("fileStorage.path"))
 	if err != nil {
 		goapp.Log.Fatal(errors.Wrap(err, "can't init file saver"))
 	}
 
-	mongoSessionProvider, err := mng.NewSessionProvider(goapp.Config.GetString("mongo.url"), mongo.GetIndexes(), "tts")
+	mongoSessionProvider, err := mng.NewSessionProvider(cfg.GetString("mongo.url"), mongo.GetIndexes(), "tts")
 	if err != nil {
 		goapp.Log.Fatal(errors.Wrap(err, "can't init mongo session provider"))
 	}
@@ -35,8 +41,8 @@ func main() {
 		goapp.Log.Fatal(errors.Wrap(err, "can't init mongo request saver"))
 	}
 
-	msgChannelProvider, err := rabbit.NewChannelProvider(goapp.Config.GetString("messageServer.url"),
-		goapp.Config.GetString("messageServer.user"), goapp.Config.GetString("messageServer.pass"))
+	msgChannelProvider, err := rabbit.NewChannelProvider(cfg.GetString("messageServer.url"),
+		cfg.GetString("messageServer.user"), cfg.GetString("messageServer.pass"))
 	if err != nil {
 		goapp.Log.Fatal(errors.Wrap(err, "can't init rabbitmq channel provider"))
 	}
