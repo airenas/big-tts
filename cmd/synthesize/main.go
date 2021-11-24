@@ -26,9 +26,10 @@ func main() {
 	goapp.StartWithDefault()
 
 	data := &synthesize.ServiceData{}
+	cfg := goapp.Config
 
-	msgChannelProvider, err := rabbit.NewChannelProvider(goapp.Config.GetString("messageServer.url"),
-		goapp.Config.GetString("messageServer.user"), goapp.Config.GetString("messageServer.pass"))
+	msgChannelProvider, err := rabbit.NewChannelProvider(cfg.GetString("messageServer.url"),
+		cfg.GetString("messageServer.user"), cfg.GetString("messageServer.pass"))
 	if err != nil {
 		goapp.Log.Fatal(errors.Wrap(err, "can't init rabbitmq channel provider"))
 	}
@@ -62,7 +63,7 @@ func main() {
 	data.MsgSender = rabbit.NewSender(msgChannelProvider)
 	data.InformMsgSender = data.MsgSender
 
-	mongoSessionProvider, err := mng.NewSessionProvider(goapp.Config.GetString("mongo.url"), mongo.GetIndexes(), "tts")
+	mongoSessionProvider, err := mng.NewSessionProvider(cfg.GetString("mongo.url"), mongo.GetIndexes(), "tts")
 	if err != nil {
 		goapp.Log.Fatal(errors.Wrap(err, "can't init mongo session provider"))
 	}
@@ -72,20 +73,21 @@ func main() {
 	if err != nil {
 		goapp.Log.Fatal(errors.Wrap(err, "can't init mongo status saver"))
 	}
-	data.Splitter, err = splitter.NewWorker(goapp.Config.GetString("splitter.inTemplate"),
-		goapp.Config.GetString("splitter.outTemplate"))
+	data.Splitter, err = splitter.NewWorker(cfg.GetString("splitter.inTemplate"),
+		cfg.GetString("splitter.outTemplate"))
 	if err != nil {
 		goapp.Log.Fatal(errors.Wrap(err, "can't init splitter"))
 	}
-	data.Synthesizer, err = sythesizer.NewWorker(goapp.Config.GetString("splitter.outTemplate"),
-		goapp.Config.GetString("synthesizer.outTemplate"),
-		goapp.Config.GetString("synthesizer.URL"))
+	data.Synthesizer, err = sythesizer.NewWorker(cfg.GetString("splitter.outTemplate"),
+		cfg.GetString("synthesizer.outTemplate"),
+		cfg.GetString("synthesizer.URL"))
 	if err != nil {
 		goapp.Log.Fatal(errors.Wrap(err, "can't init synthesizer"))
 	}
-	data.Joiner, err = joiner.NewWorker(goapp.Config.GetString("synthesizer.outTemplate"),
-		goapp.Config.GetString("joiner.outTemplate"),
-		goapp.Config.GetStringSlice("joiner.metadata"))
+	data.Joiner, err = joiner.NewWorker(cfg.GetString("synthesizer.outTemplate"),
+		cfg.GetString("joiner.outTemplate"),
+		cfg.GetString("joiner.workTemplate"),
+		cfg.GetStringSlice("joiner.metadata"))
 	if err != nil {
 		goapp.Log.Fatal(errors.Wrap(err, "can't init joiner"))
 	}

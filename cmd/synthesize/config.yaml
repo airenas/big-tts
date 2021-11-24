@@ -14,12 +14,12 @@ splitter:
     outTemplate: ../upload/local-fs/work/{}/split
 
 synthesizer:
-    url:  https://sinteze.intelektika.lt/synthesis.service/astra/synthesize 
-    outTemplate: ../upload/local-fs/work/{}/audio    
+    url: https://sinteze.intelektika.lt/synthesis.service/astra/synthesize
+    outTemplate: ../upload/local-fs/work/{}/audio
 
 joiner:
     outTemplate: ../upload/local-fs/work/{}/result
+    workTemplate: ../upload/local-fs/work/{}/
     metadata:
-      - copyright=UAB Intelektika
-      - description=encoded by UAB Intelektika
-      
+        - copyright=UAB Intelektika
+        - description=encoded by UAB Intelektika

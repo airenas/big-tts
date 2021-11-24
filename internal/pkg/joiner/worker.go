@@ -17,6 +17,7 @@ import (
 type Worker struct {
 	inDir    string
 	savePath string
+	workPath string
 	metadata []string
 
 	existsFunc    func(string) bool
@@ -25,16 +26,19 @@ type Worker struct {
 	convertFunc   func([]string) error
 }
 
-func NewWorker(inDir string, savePath string, metadata []string) (*Worker, error) {
+func NewWorker(inDir, savePath, workPath string, metadata []string) (*Worker, error) {
 	if !strings.Contains(inDir, "{}") {
 		return nil, errors.Errorf("no ID template in inDir")
 	}
 	if !strings.Contains(savePath, "{}") {
 		return nil, errors.Errorf("no ID template in savePath")
 	}
+	if !strings.Contains(workPath, "{}") {
+		return nil, errors.Errorf("no ID template in workPath")
+	}
 	goapp.Log.Infof("Joiner in: %s", inDir)
 	goapp.Log.Infof("Joiner out: %s", savePath)
-	res := &Worker{inDir: inDir, savePath: savePath, metadata: metadata}
+	res := &Worker{inDir: inDir, savePath: savePath, metadata: metadata, workPath: workPath}
 	res.existsFunc = utils.FileExists
 	res.saveFunc = utils.WriteFile
 	res.convertFunc = runCmd
@@ -44,7 +48,7 @@ func NewWorker(inDir string, savePath string, metadata []string) (*Worker, error
 
 func (w *Worker) Do(msg *messages.TTSMessage) error {
 	goapp.Log.Infof("Doing join job for %s", msg.ID)
-	files, err := w.makeList(msg.ID)
+	files, err := w.makeList(msg.ID, msg.OutputFormat)
 	if err != nil {
 		return errors.Wrapf(err, "can't prepare files list")
 	}
@@ -53,21 +57,26 @@ func (w *Worker) Do(msg *messages.TTSMessage) error {
 	if err != nil {
 		return errors.Wrapf(err, "can't create %s", path)
 	}
-	listFile := filepath.Join(path, "list.txt")
+	wpath := strings.ReplaceAll(w.workPath, "{}", msg.ID)
+	err = w.createDirFunc(wpath)
+	if err != nil {
+		return errors.Wrapf(err, "can't create %s", wpath)
+	}
+	listFile := filepath.Join(wpath, "list.txt")
 	err = w.saveFunc(listFile, []byte(prepareListFile(files)))
 	if err != nil {
 		return errors.Wrapf(err, "can't save %s", listFile)
 	}
-	outFile := filepath.Join(path, "result.m4a")
+	outFile := filepath.Join(path, fmt.Sprintf("result.%s", msg.OutputFormat))
 	return w.join(listFile, outFile)
 }
 
-func (w *Worker) makeList(ID string) ([]string, error) {
+func (w *Worker) makeList(ID, format string) ([]string, error) {
 	path := strings.ReplaceAll(w.inDir, "{}", ID)
 	var res []string
 
 	for i := 0; ; i++ {
-		inFile := filepath.Join(path, fmt.Sprintf("%04d.m4a", i))
+		inFile := filepath.Join(path, fmt.Sprintf("%04d.%s", i, format))
 		if w.existsFunc(inFile) {
 			res = append(res, inFile)
 		} else {
@@ -117,7 +126,7 @@ func runCmd(cmdArr []string) error {
 	cmd.Stderr = &outputBuffer
 	err := cmd.Run()
 	if err != nil {
-		return errors.Wrap(err, "Output: "+string(outputBuffer.Bytes()))
+		return errors.Wrap(err, "Output: "+outputBuffer.String())
 	}
 	return nil
 }
