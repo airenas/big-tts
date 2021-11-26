@@ -1,0 +1,4 @@
+port: 8183
+
+mongo:
+    url: mongodb://tts:---@localhost:27018  

@@ -69,7 +69,7 @@ func main() {
 	}
 	defer mongoSessionProvider.Close()
 
-	data.StatusSaver, err = mongo.NewStatusSaver(mongoSessionProvider)
+	data.StatusSaver, err = mongo.NewStatus(mongoSessionProvider)
 	if err != nil {
 		goapp.Log.Fatal(errors.Wrap(err, "can't init mongo status saver"))
 	}

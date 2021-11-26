@@ -4,24 +4,24 @@ import (
 	"fmt"
 
 	mng "github.com/airenas/async-api/pkg/mongo"
-	mgodr "go.mongodb.org/mongo-driver/mongo"
 	"github.com/airenas/big-tts/internal/pkg/persistence"
 	"github.com/airenas/big-tts/internal/pkg/status"
 	"github.com/airenas/go-app/pkg/goapp"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
+	mgodr "go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // RequestSaver saves process request to mongo db
 type Request struct {
 	SessionProvider *mng.SessionProvider
-	statusSaver     *StatusSaver
+	statusSaver     *Status
 }
 
 //NewRequestSaver creates RequestSaver instance
 func NewRequest(sessionProvider *mng.SessionProvider) (*Request, error) {
-	f := Request{SessionProvider: sessionProvider, statusSaver: &StatusSaver{SessionProvider: sessionProvider}}
+	f := Request{SessionProvider: sessionProvider, statusSaver: &Status{SessionProvider: sessionProvider}}
 	return &f, nil
 }
 

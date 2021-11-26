@@ -8,5 +8,8 @@ const (
 )
 
 func GetIndexes() []mng.IndexData {
-	return []mng.IndexData{mng.NewIndexData(requestTable, "ID", true), mng.NewIndexData(statusTable, "ID", true)}
+	return []mng.IndexData{
+		mng.NewIndexData(requestTable, "ID", true),
+		mng.NewIndexData(statusTable, "ID", true),
+	}
 }
