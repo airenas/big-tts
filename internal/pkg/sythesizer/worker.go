@@ -151,7 +151,9 @@ func invoke(URL string, dataIn input, dataOut *result, saveTags []string) error 
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return errors.Errorf("can't invoke '%s'. Code: '%d'", req.URL.String(), resp.StatusCode)
+		bodyBytes, _ := ioutil.ReadAll(resp.Body)
+		return errors.Errorf("Can't invoke '%s'. Code: '%d'. Response: %s",
+			req.URL.String(), resp.StatusCode, string(bodyBytes))
 	}
 	br, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
