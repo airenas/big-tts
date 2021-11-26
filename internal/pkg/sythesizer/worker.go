@@ -143,7 +143,7 @@ func invoke(URL string, dataIn input, dataOut *result, saveTags []string) error 
 	ctx, cancelF := context.WithTimeout(context.Background(), time.Minute*10)
 	defer cancelF()
 	req = req.WithContext(ctx)
-	goapp.Log.Info("Call : ", req.URL.String())
+	goapp.Log.Info("Call: ", req.URL.String())
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {

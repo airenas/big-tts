@@ -1,8 +1,13 @@
 package utils
 
-import "os"
+import (
+	"os"
+
+	"github.com/airenas/go-app/pkg/goapp"
+)
 
 func WriteFile(name string, data []byte) error {
+	goapp.Log.Infof("Save %s", name)
 	f, err := os.OpenFile(name, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return err
