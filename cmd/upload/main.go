@@ -36,7 +36,7 @@ func main() {
 	}
 	defer mongoSessionProvider.Close()
 
-	data.ReqSaver, err = mongo.NewRequestSaver(mongoSessionProvider)
+	data.ReqSaver, err = mongo.NewRequest(mongoSessionProvider)
 	if err != nil {
 		goapp.Log.Fatal(errors.Wrap(err, "can't init mongo request saver"))
 	}

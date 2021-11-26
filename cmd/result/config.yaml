@@ -1,0 +1,7 @@
+port: 8182
+
+fileStorage:
+    path: ../upload/local-fs/work
+
+mongo:
+    url: mongodb://tts:---@localhost:27018  
