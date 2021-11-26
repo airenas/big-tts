@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/airenas/big-tts/internal/pkg/messages"
@@ -53,32 +54,57 @@ func NewWorker(inTemplate, outTemplate string, url string) (*Worker, error) {
 
 func (w *Worker) Do(msg *messages.TTSMessage) error {
 	goapp.Log.Infof("Doing synthesize job for %s", msg.ID)
-	var err error
 	outDir := strings.ReplaceAll(w.outDir, "{}", msg.ID)
 	if err := w.createDirFunc(outDir); err != nil {
 		return errors.Wrapf(err, "can't create %s", outDir)
 	}
+
+	errCh := make(chan error, 3)
+	syncCh := make(chan struct{}, 2)
 	stop := false
+	wg := &sync.WaitGroup{}
+	var inF, outF string
 	for i := 0; !stop; i++ {
-		stop, err = w.processFile(i, msg)
-		if err != nil {
-			return err
+		stop, inF, outF = w.getFiles(i, msg)
+		if inF != "" {
+			select {
+			case syncCh <- struct{}{}:
+			case err := <-errCh:
+				goapp.Log.Infof("Error occured, waiting to complete all jobs")
+				wg.Wait()
+				return err
+			}
+			wg.Add(1)
+			go func(_inF, _outF string, _i int) {
+				defer func() {
+					wg.Done()
+					<-syncCh
+				}()
+				goapp.Log.Infof("Process item %d", _i)
+				err := w.invoke(_inF, _outF, msg)
+				if err != nil {
+					errCh <- err
+				}
+			}(inF, outF, i)
 		}
 	}
-	return nil
+	goapp.Log.Infof("Waiting to complete all jobs")
+	wg.Wait()
+	errCh <- nil
+	return <-errCh
 }
 
-func (w *Worker) processFile(num int, msg *messages.TTSMessage) (bool, error) {
+func (w *Worker) getFiles(num int, msg *messages.TTSMessage) (bool, string, string) {
 	inFile := filepath.Join(strings.ReplaceAll(w.inDir, "{}", msg.ID), fmt.Sprintf("%04d.txt", num))
+	if !w.existsFunc(inFile) {
+		return true, "", ""
+	}
 	outDir := strings.ReplaceAll(w.outDir, "{}", msg.ID)
 	outFile := filepath.Join(outDir, fmt.Sprintf("%04d.%s", num, msg.OutputFormat))
-	if !w.existsFunc(inFile) {
-		return true, nil
-	}
 	if w.existsFunc(outFile) {
-		return false, nil
+		return false, "", ""
 	}
-	return false, w.invoke(inFile, outFile, msg)
+	return false, inFile, outFile
 }
 
 func (w *Worker) invoke(inFile string, outFile string, msg *messages.TTSMessage) error {
