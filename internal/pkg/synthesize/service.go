@@ -15,7 +15,7 @@ import (
 )
 
 type worker interface {
-	Do(*messages.TTSMessage) error
+	Do(context.Context, *messages.TTSMessage) error
 }
 
 type msgSender interface {
@@ -39,6 +39,8 @@ type ServiceData struct {
 	Splitter    worker
 	Synthesizer worker
 	Joiner      worker
+
+	StopCtx context.Context
 }
 
 //return true if it can be redelivered
@@ -137,6 +139,12 @@ func processMsg(d *amqp.Delivery, f prFunc, data *ServiceData) error {
 	if err != nil {
 		goapp.Log.Errorf("Can't process message %s\n%s", d.MessageId, string(d.Body))
 		goapp.Log.Error(err)
+		select {
+		case <-data.StopCtx.Done():
+			goapp.Log.Infof("Cancel msg process")
+			return nil
+		default:
+		}
 		requeue := redeliver && !d.Redelivered
 		if !requeue {
 			err := data.StatusSaver.Save(message.ID, "", err.Error())
@@ -178,7 +186,7 @@ func split(message *messages.TTSMessage, data *ServiceData) (bool, error) {
 		return true, err
 	}
 	resMsg := messages.NewMessageFrom(message)
-	err = data.Splitter.Do(message)
+	err = data.Splitter.Do(data.StopCtx, message)
 	if err != nil {
 		return true, err
 	}
@@ -192,7 +200,7 @@ func synthesize(message *messages.TTSMessage, data *ServiceData) (bool, error) {
 		return true, err
 	}
 	resMsg := messages.NewMessageFrom(message)
-	err = data.Synthesizer.Do(message)
+	err = data.Synthesizer.Do(data.StopCtx, message)
 	if err != nil {
 		return true, err
 	}
@@ -205,7 +213,7 @@ func join(message *messages.TTSMessage, data *ServiceData) (bool, error) {
 	if err != nil {
 		return true, err
 	}
-	err = data.Joiner.Do(message)
+	err = data.Joiner.Do(data.StopCtx, message)
 	if err != nil {
 		return true, err
 	}

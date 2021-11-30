@@ -96,6 +96,7 @@ func main() {
 	printBanner()
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
+	data.StopCtx = ctx
 	doneCh, err := synthesize.StartWorkerService(ctx, data)
 	if err != nil {
 		goapp.Log.Fatal(errors.Wrap(err, "can't start worker service"))
@@ -113,7 +114,7 @@ func main() {
 	select {
 	case <-doneCh:
 		goapp.Log.Info("All code returned. Now exit. Bye")
-	case <-time.After(time.Second * 10):
+	case <-time.After(time.Second * 15):
 		logrus.Warn("Timeout gracefull shutdown")
 	}
 }

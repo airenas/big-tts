@@ -22,9 +22,9 @@ import (
 )
 
 type Worker struct {
-	inDir      string
-	outDir     string
-	serviceURL string
+	inDir       string
+	outDir      string
+	serviceURL  string
 	workerCount int
 
 	loadFunc      func(string) ([]byte, error)
@@ -62,23 +62,28 @@ func NewWorker(inTemplate, outTemplate string, url string, workerCount int) (*Wo
 	return res, nil
 }
 
-func (w *Worker) Do(msg *messages.TTSMessage) error {
+func (w *Worker) Do(ctx context.Context, msg *messages.TTSMessage) error {
 	goapp.Log.Infof("Doing synthesize job for %s", msg.ID)
 	outDir := strings.ReplaceAll(w.outDir, "{}", msg.ID)
 	if err := w.createDirFunc(outDir); err != nil {
 		return errors.Wrapf(err, "can't create %s", outDir)
 	}
 
-	errCh := make(chan error, w.workerCount + 1)
+	errCh := make(chan error, w.workerCount+1)
 	syncCh := make(chan struct{}, w.workerCount)
 	stop := false
 	wg := &sync.WaitGroup{}
 	var inF, outF string
+out:
 	for i := 0; !stop; i++ {
 		stop, inF, outF = w.getFiles(i, msg)
 		if inF != "" {
 			select {
 			case syncCh <- struct{}{}:
+			case <-ctx.Done():
+				goapp.Log.Warnf("Exit synthesizer loop")
+				errCh <- errors.New("canceled")
+				break out
 			case err := <-errCh:
 				goapp.Log.Infof("Error occured, waiting to complete all jobs")
 				wg.Wait()

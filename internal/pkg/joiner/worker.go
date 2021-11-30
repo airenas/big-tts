@@ -2,6 +2,7 @@ package joiner
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -46,7 +47,7 @@ func NewWorker(inDir, savePath, workPath string, metadata []string) (*Worker, er
 	return res, nil
 }
 
-func (w *Worker) Do(msg *messages.TTSMessage) error {
+func (w *Worker) Do(ctx context.Context, msg *messages.TTSMessage) error {
 	goapp.Log.Infof("Doing join job for %s", msg.ID)
 	files, err := w.makeList(msg.ID, msg.OutputFormat)
 	if err != nil {

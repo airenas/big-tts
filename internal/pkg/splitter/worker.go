@@ -1,6 +1,7 @@
 package splitter
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -39,7 +40,7 @@ func NewWorker(loadPath string, savePath string) (*Worker, error) {
 	return res, nil
 }
 
-func (w *Worker) Do(msg *messages.TTSMessage) error {
+func (w *Worker) Do(ctx context.Context, msg *messages.TTSMessage) error {
 	goapp.Log.Infof("Doing split job for %s", msg.ID)
 	text, err := w.load(msg.ID)
 	if err != nil {
