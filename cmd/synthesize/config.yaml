@@ -16,6 +16,7 @@ splitter:
 synthesizer:
     url: https://sinteze.intelektika.lt/synthesis.service/astra/synthesize
     outTemplate: ../upload/local-fs/work/{}/audio
+    workers: 1
 
 joiner:
     outTemplate: ../upload/local-fs/work/{}/result

@@ -25,6 +25,7 @@ type Worker struct {
 	inDir      string
 	outDir     string
 	serviceURL string
+	workerCount int
 
 	loadFunc      func(string) ([]byte, error)
 	saveFunc      func(string, []byte) error
@@ -33,7 +34,7 @@ type Worker struct {
 	callFunc      func(string, *messages.TTSMessage) ([]byte, error)
 }
 
-func NewWorker(inTemplate, outTemplate string, url string) (*Worker, error) {
+func NewWorker(inTemplate, outTemplate string, url string, workerCount int) (*Worker, error) {
 	if !strings.Contains(inTemplate, "{}") {
 		return nil, errors.Errorf("no ID template in inTemplate")
 	}
@@ -43,12 +44,21 @@ func NewWorker(inTemplate, outTemplate string, url string) (*Worker, error) {
 	if url == "" {
 		return nil, errors.Errorf("no service URL")
 	}
+	if workerCount < 1 {
+		return nil, errors.Errorf("no workerCount provided")
+	}
 	res := &Worker{inDir: inTemplate, outDir: outTemplate, serviceURL: url}
 	res.loadFunc = ioutil.ReadFile
 	res.saveFunc = utils.WriteFile
 	res.existsFunc = utils.FileExists
 	res.createDirFunc = func(name string) error { return os.MkdirAll(name, os.ModePerm) }
 	res.callFunc = res.invokeService
+	res.workerCount = workerCount
+
+	goapp.Log.Infof("Synthesizer URL: %s", res.serviceURL)
+	goapp.Log.Infof("Synthesizer workers: %d", res.workerCount)
+	goapp.Log.Infof("Synthesizer in dir: %s", res.inDir)
+	goapp.Log.Infof("Synthesizer out dir: %s", res.outDir)
 	return res, nil
 }
 
@@ -59,8 +69,8 @@ func (w *Worker) Do(msg *messages.TTSMessage) error {
 		return errors.Wrapf(err, "can't create %s", outDir)
 	}
 
-	errCh := make(chan error, 3)
-	syncCh := make(chan struct{}, 2)
+	errCh := make(chan error, w.workerCount + 1)
+	syncCh := make(chan struct{}, w.workerCount)
 	stop := false
 	wg := &sync.WaitGroup{}
 	var inF, outF string

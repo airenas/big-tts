@@ -80,7 +80,8 @@ func main() {
 	}
 	data.Synthesizer, err = sythesizer.NewWorker(cfg.GetString("splitter.outTemplate"),
 		cfg.GetString("synthesizer.outTemplate"),
-		cfg.GetString("synthesizer.URL"))
+		cfg.GetString("synthesizer.URL"),
+		cfg.GetInt("synthesizer.workers"))
 	if err != nil {
 		goapp.Log.Fatal(errors.Wrap(err, "can't init synthesizer"))
 	}
