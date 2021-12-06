@@ -1,0 +1,19 @@
+port: 8000
+
+fileStorage:
+  path: /tmp
+
+# synthesis:
+#   defaultVoice: astra
+#   voices:
+#     - laimis.v01
+#     - vytautas.v05b
+#   defaultFormat: mp3
+
+# mongo:
+#   url:
+
+# messageServer:
+#   url:
+#   user:
+#   pass:

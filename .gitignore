@@ -24,3 +24,4 @@ cmd/upload/upload
 21.txt
 cmd/synthesize/run.sh
 cmd/synthesize/synthesize
+build/upload/data/**
