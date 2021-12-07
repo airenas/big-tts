@@ -1,4 +1,4 @@
-FROM iron/base
+FROM iron/base:3.14.0
 
 ARG BUILD_VERSION=0.1
 
@@ -13,11 +13,13 @@ LABEL org.opencontainers.image.version=$BUILD_VERSION \
       description="This image is used to host the Big TTS Upload service" 
 
 WORKDIR /app
-VOLUME ["/data"]
+VOLUME /data
 
-RUN addgroup app && adduser -S -G app app
+ENV UID=999
+
+RUN addgroup app && adduser -S -G app --uid $UID app
 RUN mkdir -p /app && chown -R app:app /app   
-RUN mkdir -p /data && chown -R app:app /data   
+RUN mkdir -p /data && chown -R app:app /data 
 
 COPY data/upload /app/
 COPY config.yaml /app/
