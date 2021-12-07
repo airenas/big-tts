@@ -13,9 +13,11 @@ LABEL org.opencontainers.image.version=$BUILD_VERSION \
       description="This image is used to host the Big TTS Upload service" 
 
 WORKDIR /app
+VOLUME ["/data"]
 
 RUN addgroup app && adduser -S -G app app
 RUN mkdir -p /app && chown -R app:app /app   
+RUN mkdir -p /data && chown -R app:app /data   
 
 COPY data/upload /app/
 COPY config.yaml /app/
