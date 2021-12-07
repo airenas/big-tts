@@ -59,6 +59,7 @@ func main() {
 		goapp.Log.Fatal(errors.Wrap(err, "can't init email maker"))
 	}
 
+	data.TaskName = cfg.GetString("worker.taskName")
 	location := cfg.GetString("worker.location")
 	if location != "" {
 		data.Location, err = time.LoadLocation(location)

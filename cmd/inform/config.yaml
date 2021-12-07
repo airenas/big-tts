@@ -1,0 +1,49 @@
+mongo:
+    url: mongodb://tts:---@localhost:27018
+
+messageServer:
+    url: localhost:5673/
+    user: tts
+    pass: ---
+
+worker:
+    taskName: Inform
+    location: Europe/Vilnius
+
+mail:
+    url: http://localhost:7050/tts/results/{{ID}}
+
+    Started:
+        subject: Pradėta Sintezės Užduotis
+        text: > 
+            Sveiki, 
+        
+            Informuojame, kad {{DATE}} pradėta sintezės užduotis.
+
+            Užduočiai suteiktas ID: {{ID}}.
+
+            Užduoties statusą galite stebėti čia: {{URL}}
+
+    Finished:
+        subject: Baigta Sintezės Užduotis
+        text: > 
+            Sveiki, 
+        
+            Informuojame, kad sintezės užduotis {{ID}} baigta.
+
+            Rezultato nuoroda: {{URL}}
+    
+    Failed:
+        subject: Nepavyko Sintezės Užduotis
+        text: > 
+            Sveiki, 
+        
+            Informuojame, kad sintezės užduotis {{ID}} nepavyko.
+
+            Daugiau informacijos čia: {{URL}}   
+
+smtp:
+    host: smtp.gmail.com
+    port: 587
+    # username: 
+    # password: 
