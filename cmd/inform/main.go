@@ -7,14 +7,12 @@ import (
 	"syscall"
 	"time"
 
+	ainform "github.com/airenas/async-api/pkg/inform"
 	mng "github.com/airenas/async-api/pkg/mongo"
 	"github.com/airenas/async-api/pkg/rabbit"
-	"github.com/airenas/big-tts/internal/pkg/joiner"
+	"github.com/airenas/big-tts/internal/pkg/inform"
 	"github.com/airenas/big-tts/internal/pkg/messages"
 	"github.com/airenas/big-tts/internal/pkg/mongo"
-	"github.com/airenas/big-tts/internal/pkg/splitter"
-	"github.com/airenas/big-tts/internal/pkg/synthesize"
-	"github.com/airenas/big-tts/internal/pkg/sythesizer"
 	"github.com/airenas/go-app/pkg/goapp"
 	"github.com/labstack/gommon/color"
 	"github.com/pkg/errors"
@@ -24,7 +22,7 @@ import (
 func main() {
 	goapp.StartWithDefault()
 
-	data := &synthesize.ServiceData{}
+	data := &inform.ServiceData{}
 	cfg := goapp.Config
 
 	msgChannelProvider, err := rabbit.NewChannelProvider(cfg.GetString("messageServer.url"),
@@ -46,21 +44,9 @@ func main() {
 		goapp.Log.Fatal(errors.Wrap(err, "can't set Qos"))
 	}
 
-	if data.UploadCh, err = makeQChannel(ch, msgChannelProvider.QueueName(messages.Upload)); err != nil {
+	if data.WorkCh, err = makeQChannel(ch, msgChannelProvider.QueueName(messages.Inform)); err != nil {
 		goapp.Log.Fatal(err)
 	}
-	if data.SplitCh, err = makeQChannel(ch, msgChannelProvider.QueueName(messages.Split)); err != nil {
-		goapp.Log.Fatal(err)
-	}
-	if data.SynthesizeCh, err = makeQChannel(ch, msgChannelProvider.QueueName(messages.Synthesize)); err != nil {
-		goapp.Log.Fatal(err)
-	}
-	if data.JoinCh, err = makeQChannel(ch, msgChannelProvider.QueueName(messages.Join)); err != nil {
-		goapp.Log.Fatal(err)
-	}
-
-	data.MsgSender = rabbit.NewSender(msgChannelProvider)
-	data.InformMsgSender = data.MsgSender
 
 	mongoSessionProvider, err := mng.NewSessionProvider(cfg.GetString("mongo.url"), mongo.GetIndexes(), "tts")
 	if err != nil {
@@ -68,37 +54,40 @@ func main() {
 	}
 	defer mongoSessionProvider.Close()
 
-	data.StatusSaver, err = mongo.NewStatus(mongoSessionProvider)
+	data.EmailMaker, err = ainform.NewSimpleEmailMaker(cfg)
 	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't init mongo status saver"))
+		goapp.Log.Fatal(errors.Wrap(err, "can't init email maker"))
 	}
-	data.Splitter, err = splitter.NewWorker(cfg.GetString("splitter.inTemplate"),
-		cfg.GetString("splitter.outTemplate"))
-	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't init splitter"))
+
+	location := cfg.GetString("worker.location")
+	if location != "" {
+		data.Location, err = time.LoadLocation(location)
+		if err != nil {
+			goapp.Log.Fatal(errors.Wrap(err, "can't init location"))
+		}
 	}
-	data.Synthesizer, err = sythesizer.NewWorker(cfg.GetString("splitter.outTemplate"),
-		cfg.GetString("synthesizer.outTemplate"),
-		cfg.GetString("synthesizer.URL"),
-		cfg.GetInt("synthesizer.workers"))
+
+	data.EmailSender, err = ainform.NewSimpleEmailSender(cfg)
 	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't init synthesizer"))
+		goapp.Log.Fatal(errors.Wrap(err, "can't init email sender"))
 	}
-	data.Joiner, err = joiner.NewWorker(cfg.GetString("synthesizer.outTemplate"),
-		cfg.GetString("joiner.outTemplate"),
-		cfg.GetString("joiner.workTemplate"),
-		cfg.GetStringSlice("joiner.metadata"))
+
+	data.Locker, err = mng.NewLocker(mongoSessionProvider, mongo.EmailTable)
 	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't init joiner"))
+		goapp.Log.Fatal(errors.Wrap(err, "can't init mongo locker"))
+	}
+
+	data.EmailRetriever, err = mongo.NewRequest(mongoSessionProvider)
+	if err != nil {
+		goapp.Log.Fatal(errors.Wrap(err, "can't init email retriever"))
 	}
 
 	printBanner()
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
-	data.StopCtx = ctx
-	doneCh, err := synthesize.StartWorkerService(ctx, data)
+	doneCh, err := inform.StartWorkerService(ctx, data)
 	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't start worker service"))
+		goapp.Log.Fatal(errors.Wrap(err, "can't start inform worker service"))
 	}
 	/////////////////////// Waiting for terminate
 	waitCh := make(chan os.Signal, 2)
@@ -120,7 +109,7 @@ func main() {
 
 func initQueues(prv *rabbit.ChannelProvider) error {
 	goapp.Log.Info("Initializing queues")
-	for _, n := range [...]string{messages.Split, messages.Synthesize, messages.Upload, messages.Join, messages.Inform} {
+	for _, n := range [...]string{messages.Inform} {
 		err := prv.RunOnChannelWithRetry(func(ch *amqp.Channel) error {
 			_, err := rabbit.DeclareQueue(ch, prv.QueueName(n))
 			return err
@@ -150,14 +139,13 @@ func printBanner() {
    / __ )/  _/ ____/  / /_/ /______
   / __  |/ // / __   / __/ __/ ___/
  / /_/ // // /_/ /  / /_/ /_(__  ) 
-/_____/___/\____/   \__/\__/____/  v: %s  
+/_____/___/\____/   \__/\__/____/  
                                    
-                        __  __              _          
-      _______  ______  / /_/ /_  ___  _____(_)___  ___ 
-     / ___/ / / / __ \/ __/ __ \/ _ \/ ___/ /_  / / _ \
-    (__  ) /_/ / / / / /_/ / / /  __(__  ) / / /_/  __/
-   /____/\__, /_/ /_/\__/_/ /_/\___/____/_/ /___/\___/ 
-        /____/                                         
+  //|_       ____                    //|
+ |/|(_)___  / __/___  _________ ___ |/||
+   / / __ \/ /_/ __ \/ ___/ __ ` + "`" + `__ \    
+  / / / / / __/ /_/ / /  / / / / / /    
+ /_/_/ /_/_/  \____/_/  /_/ /_/ /_/  v: %s  
 
 %s
 ________________________________________________________

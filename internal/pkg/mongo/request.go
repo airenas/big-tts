@@ -48,23 +48,43 @@ func (rm *Request) Save(data *persistence.ReqData) error {
 
 func (rm *Request) GetResultFile(id string) (string, error) {
 	goapp.Log.Infof("Getting file name by ID %s", id)
-
-	c, ctx, cancel, err := mng.NewCollection(rm.SessionProvider, requestTable)
+	m, err := rm.loadData(id)
 	if err != nil {
 		return "", err
-	}
-	defer cancel()
-
-	var m persistence.ReqData
-	err = c.FindOne(ctx, bson.M{"ID": id}).Decode(&m)
-	if err == mgodr.ErrNoDocuments {
-		return "", errors.Wrap(err, "no request by ID")
-	}
-	if err != nil {
-		return "", errors.Wrap(err, "can't get request record")
 	}
 	if m.OutputFormat == "" {
 		return "", errors.New("no output format")
 	}
 	return fmt.Sprintf("%s/result/result.%s", id, m.OutputFormat), nil
+}
+
+func (rm *Request) loadData(id string) (*persistence.ReqData, error) {
+	c, ctx, cancel, err := mng.NewCollection(rm.SessionProvider, requestTable)
+	if err != nil {
+		return nil, err
+	}
+	defer cancel()
+
+	var res persistence.ReqData
+	err = c.FindOne(ctx, bson.M{"ID": id}).Decode(&res)
+	if err == mgodr.ErrNoDocuments {
+		return nil, errors.Wrap(err, "no request by ID")
+	}
+	if err != nil {
+		return nil, errors.Wrap(err, "can't get request record")
+	}
+	return &res, nil
+}
+
+//Get returns email by ID
+func (rm *Request) GetEmail(id string) (string, error) {
+	goapp.Log.Infof("Getting email by ID %s", id)
+	m, err := rm.loadData(id)
+	if err != nil {
+		return "", err
+	}
+	if m.Email == "" {
+		return "", errors.New("no email")
+	}
+	return m.Email, nil
 }
