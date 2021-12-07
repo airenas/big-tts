@@ -1,0 +1,7 @@
+port: 8000
+
+fileStorage:
+  path: /data/work
+
+# mongo:
+#   url:
