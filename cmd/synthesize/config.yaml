@@ -1,6 +1,3 @@
-fileStorage:
-    path: local-fs/in
-
 mongo:
     url: mongodb://tts:---@localhost:27018
 

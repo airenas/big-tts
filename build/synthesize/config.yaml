@@ -1,0 +1,23 @@
+# mongo:
+#     url: mongodb://tts:---@localhost:27018
+
+# messageServer:
+#     url: localhost:5673/
+#     user: tts
+#     pass: ---
+
+splitter:
+    inTemplate: /data/in/{}.txt
+    outTemplate: /data/work/{}/split
+
+synthesizer:
+    # url: https://sinteze.intelektika.lt/synthesis.service/astra/synthesize
+    outTemplate: /data/work/{}/audio
+    workers: 1
+
+joiner:
+    outTemplate: /data/work/{}/result
+    workTemplate: /data/work/{}/
+    metadata:
+        - copyright=UAB Intelektika
+        - description=encoded by UAB Intelektika
