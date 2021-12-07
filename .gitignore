@@ -27,4 +27,4 @@ cmd/synthesize/synthesize
 build/upload/data/**
 build/result/data/**
 build/status/data/**
-build/synthesize/data/**
+build/**/data/**

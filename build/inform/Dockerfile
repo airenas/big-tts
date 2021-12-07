@@ -1,9 +1,6 @@
 FROM iron/base:3.14.0 as runner
 
-RUN apk --no-cache add ffmpeg
-
-## test ffmpeg
-RUN ffmpeg -version
+RUN apk --no-cache add tzdata
 
 FROM runner
 
@@ -16,23 +13,21 @@ LABEL org.opencontainers.image.version=$BUILD_VERSION \
       vendor="airenass@gmail.com" \
       version=$BUILD_VERSION \
       release=$BUILD_VERSION \
-      summary="This image is used to host the Big TTS Synthesize worker service" \
-      description="This image is used to host the Big TTS Synthesize worker service" 
+      summary="This image is used to host the Big TTS Inform worker service" \
+      description="This image is used to host the Big TTS Inform worker service" 
 
 WORKDIR /app
-VOLUME /data
 
 ENV UID=999
 
 RUN addgroup app && adduser -S -G app --uid $UID app
 RUN mkdir -p /app && chown -R app:app /app   
-RUN mkdir -p /data && chown -R app:app /data 
 
-COPY data/synthesize /app/
+COPY data/inform /app/
 COPY config.yaml /app/
 
 RUN chown app:app /app/* /app
  
 USER app
 
-ENTRYPOINT ["./synthesize"]
+ENTRYPOINT ["./inform"]
