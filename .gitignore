@@ -26,3 +26,4 @@ cmd/synthesize/run.sh
 cmd/synthesize/synthesize
 build/upload/data/**
 build/result/data/**
+build/status/data/**
