@@ -29,7 +29,7 @@ func NewRequest(sessionProvider *mng.SessionProvider) (*Request, error) {
 func (rm *Request) Save(data *persistence.ReqData) error {
 	goapp.Log.Infof("Saving request %s: %s", data.ID, data.Email)
 
-	c, ctx, cancel, err := mng.NewCollection(rm.SessionProvider, requestTable)
+	c, ctx, cancel, err := mng.NewCollection(rm.SessionProvider, RequestTable)
 	if err != nil {
 		return err
 	}
@@ -59,7 +59,7 @@ func (rm *Request) GetResultFile(id string) (string, error) {
 }
 
 func (rm *Request) loadData(id string) (*persistence.ReqData, error) {
-	c, ctx, cancel, err := mng.NewCollection(rm.SessionProvider, requestTable)
+	c, ctx, cancel, err := mng.NewCollection(rm.SessionProvider, RequestTable)
 	if err != nil {
 		return nil, err
 	}

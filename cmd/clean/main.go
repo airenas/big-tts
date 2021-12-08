@@ -1,6 +1,9 @@
 package main
 
 import (
+	"context"
+	"time"
+
 	aclean "github.com/airenas/async-api/pkg/clean"
 	amongo "github.com/airenas/async-api/pkg/mongo"
 	"github.com/spf13/viper"
@@ -47,9 +50,29 @@ func main() {
 
 	printBanner()
 
+	tData := aclean.TimerData{}
+	tData.RunEvery = cfg.GetDuration("timer.runEvery")
+	tData.Cleaner = cleaner
+	tData.IDsProvider, err = amongo.NewCleanIDsProvider(mongoSessionProvider, cfg.GetDuration("timer.expire"), mongo.RequestTable)
+	if err != nil {
+		goapp.Log.Fatal(errors.Wrap(err, "can't init ides provider"))
+	}
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	doneCh, err := aclean.StartCleanTimer(ctx, &tData)
+	if err != nil {
+		goapp.Log.Fatal(errors.Wrap(err, "can't start timer"))
+	}
 	err = clean.StartWebServer(data)
 	if err != nil {
 		goapp.Log.Fatal(errors.Wrap(err, "can't start web server"))
+	}
+	cancelFunc()
+	select {
+	case <-doneCh:
+		goapp.Log.Info("All code returned. Now exit. Bye")
+	case <-time.After(time.Second * 15):
+		goapp.Log.Warn("Timeout gracefull shutdown")
 	}
 }
 
