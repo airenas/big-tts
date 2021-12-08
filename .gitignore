@@ -28,3 +28,4 @@ build/upload/data/**
 build/result/data/**
 build/status/data/**
 build/**/data/**
+cmd/clean/run.sh

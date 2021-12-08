@@ -57,6 +57,7 @@ func main() {
 	if err != nil {
 		goapp.Log.Fatal(errors.Wrap(err, "can't init ides provider"))
 	}
+	goapp.Log.Infof("Expire duration %s", cfg.GetDuration("timer.expire"))
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	doneCh, err := aclean.StartCleanTimer(ctx, &tData)
