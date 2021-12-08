@@ -5,7 +5,7 @@ import mng "github.com/airenas/async-api/pkg/mongo"
 const (
 	requestTable = "requests"
 	statusTable  = "status"
-	EmailTable = "emailLock"
+	EmailTable   = "emailLock"
 )
 
 func GetIndexes() []mng.IndexData {
@@ -14,4 +14,8 @@ func GetIndexes() []mng.IndexData {
 		mng.NewIndexData(statusTable, "ID", true),
 		mng.NewIndexData(EmailTable, "ID", false),
 	}
+}
+
+func Tables() []string {
+	return []string{requestTable, statusTable, EmailTable}
 }

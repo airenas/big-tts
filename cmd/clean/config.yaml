@@ -1,0 +1,9 @@
+port: 8182
+
+fileStorage:
+    path: ../upload/local-fs
+    patterns:
+        - in/{ID}.txt
+        - work/{ID}/
+mongo:
+    url: mongodb://tts:---@localhost:27018  
