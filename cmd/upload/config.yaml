@@ -2,3 +2,18 @@ port: 8181
 
 fileStorage:
     path: local-fs/in
+
+synthesis:
+    defaultVoice: astra
+    voices:
+        - laimis.v01
+        - vytautas.v05b
+    defaultFormat: mp3    
+
+mongo:
+    url: mongodb://tts:----@localhost:27018  
+
+messageServer: 
+    url: localhost:5673/
+    user: tts
+    pass: ------    
