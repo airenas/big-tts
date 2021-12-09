@@ -56,5 +56,5 @@ func (ss *Status) Get(id string) (*persistence.Status, error) {
 
 	var m persistence.Status
 	err = c.FindOne(ctx, bson.M{"ID": id}).Decode(&m)
-	return &m, err
+	return &m, mng.SkipNoDocErr(err)
 }

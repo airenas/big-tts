@@ -95,6 +95,10 @@ func status(data *Data) func(echo.Context) error {
 		}
 		st, err := data.StatusProvider.Get(id)
 		if err != nil {
+			goapp.Log.Error(err)
+			return echo.NewHTTPError(http.StatusInternalServerError, "Service error")
+		}
+		if st == nil {
 			return echo.NewHTTPError(http.StatusBadRequest, "No status by ID")
 		}
 		res := result{Status: st.Status, Error: st.Error}
