@@ -30,3 +30,4 @@ build/status/data/**
 build/**/data/**
 cmd/clean/run.sh
 sample/docker-compose/.env
+internal/pkg/test/mocks/**
