@@ -3,7 +3,7 @@ module github.com/airenas/big-tts
 go 1.17
 
 require (
-	github.com/airenas/async-api v0.0.0-20211208085507-ef5fbcbb7b8f
+	github.com/airenas/async-api v0.1.0
 	github.com/airenas/go-app v0.2.2
 	github.com/facebookgo/grace v0.0.0-20180706040059-75cf19382434
 	github.com/google/uuid v1.1.2
@@ -55,12 +55,12 @@ require (
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.25.0 // indirect
 	github.com/prometheus/procfs v0.6.0 // indirect
-	github.com/sirupsen/logrus v1.8.1
+	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/spf13/afero v1.6.0 // indirect
 	github.com/spf13/cast v1.4.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/spf13/viper v1.9.0 // indirect
+	github.com/spf13/viper v1.9.0
 	github.com/streadway/amqp v1.0.0
 	github.com/subosito/gotenv v1.2.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
