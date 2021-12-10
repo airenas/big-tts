@@ -120,3 +120,24 @@ func TestWorker_Do_FailConvert(t *testing.T) {
 	err = got.Do(context.Background(), &messages.TTSMessage{QueueMessage: amessages.QueueMessage{ID: "id1"}, OutputFormat: "mp3"})
 	assert.NotNil(t, err)
 }
+
+func Test_runCmd(t *testing.T) {
+	type args struct {
+		cmdArr []string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{name: "OK", args: args{cmdArr: []string{"echo", "1"}}, wantErr: false},
+		{name: "OK", args: args{cmdArr: []string{"missingExec123", "1"}}, wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := runCmd(tt.args.cmdArr); (err != nil) != tt.wantErr {
+				t.Errorf("runCmd() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
