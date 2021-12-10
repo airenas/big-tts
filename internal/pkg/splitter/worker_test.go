@@ -1,7 +1,13 @@
 package splitter
 
 import (
+	"context"
 	"testing"
+
+	amessages "github.com/airenas/async-api/pkg/messages"
+	"github.com/airenas/big-tts/internal/pkg/messages"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_getNewPattern(t *testing.T) {
@@ -66,4 +72,60 @@ func Test_getNextSplit(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestNewWorker(t *testing.T) {
+	got, err := NewWorker("{}.txt", "new{}.txt")
+	assert.Nil(t, err)
+	assert.NotNil(t, got)
+	_, err = NewWorker("{}.txt", "new.txt")
+	assert.NotNil(t, err)
+	_, err = NewWorker("aaa.txt", "new{}.txt")
+	assert.NotNil(t, err)
+}
+
+func TestWorker_Do(t *testing.T) {
+	got, err := NewWorker("{}.txt", "new/{}/path")
+	assert.Nil(t, err)
+	got.loadFunc = func(s string) ([]byte, error) {
+		assert.Equal(t, "id1.txt", s)
+		return []byte("string"), nil
+	}
+	got.saveFunc = func(s string, b []byte) error {
+		return nil
+	}
+	got.createDirFunc = func(s string) error {
+		return nil
+	}
+	err = got.Do(context.Background(), &messages.TTSMessage{QueueMessage: amessages.QueueMessage{ID: "id1"}})
+	assert.Nil(t, err)
+}
+
+func TestWorker_Do_Fail(t *testing.T) {
+	got, err := NewWorker("{}.txt", "new/{}/path")
+	assert.Nil(t, err)
+	got.loadFunc = func(s string) ([]byte, error) {
+		return nil, errors.New("err")
+	}
+	got.saveFunc = func(s string, b []byte) error {
+		return nil
+	}
+	got.createDirFunc = func(s string) error {
+		return nil
+	}
+	err = got.Do(context.Background(), &messages.TTSMessage{QueueMessage: amessages.QueueMessage{ID: "id1"}})
+	assert.NotNil(t, err)
+}
+
+func TestWorker_Do_FailSave(t *testing.T) {
+	got, err := NewWorker("{}.txt", "new/{}/path")
+	assert.Nil(t, err)
+	got.saveFunc = func(s string, b []byte) error {
+		return errors.New("err")
+	}
+	got.createDirFunc = func(s string) error {
+		return nil
+	}
+	err = got.Do(context.Background(), &messages.TTSMessage{QueueMessage: amessages.QueueMessage{ID: "id1"}})
+	assert.NotNil(t, err)
 }
