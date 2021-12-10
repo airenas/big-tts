@@ -14,31 +14,31 @@ import (
 	"github.com/streadway/amqp"
 )
 
-type worker interface {
+type Worker interface {
 	Do(context.Context, *messages.TTSMessage) error
 }
 
-type msgSender interface {
+type MsgSender interface {
 	Send(msg amessages.Message, queue, replyQueue string) error
 }
 
-type statusSaver interface {
+type StatusSaver interface {
 	Save(ID string, status, err string) error
 }
 
 // ServiceData keeps data required for service work
 type ServiceData struct {
-	MsgSender       msgSender
-	InformMsgSender msgSender
-	StatusSaver     statusSaver
+	MsgSender       MsgSender
+	InformMsgSender MsgSender
+	StatusSaver     StatusSaver
 	UploadCh        <-chan amqp.Delivery
 	SplitCh         <-chan amqp.Delivery
 	SynthesizeCh    <-chan amqp.Delivery
 	JoinCh          <-chan amqp.Delivery
 
-	Splitter    worker
-	Synthesizer worker
-	Joiner      worker
+	Splitter    Worker
+	Synthesizer Worker
+	Joiner      Worker
 
 	StopCtx context.Context
 }
@@ -49,35 +49,8 @@ type prFunc func(msg *messages.TTSMessage, data *ServiceData) (bool, error)
 //StartWorkerService starts the event queue listener service to listen for events
 // returns
 func StartWorkerService(ctx context.Context, data *ServiceData) (<-chan struct{}, error) {
-	if data.UploadCh == nil {
-		return nil, errors.New("no upload channel provided")
-	}
-	if data.SplitCh == nil {
-		return nil, errors.New("no split channel provided")
-	}
-	if data.SynthesizeCh == nil {
-		return nil, errors.New("no synthesize channel provided")
-	}
-	if data.JoinCh == nil {
-		return nil, errors.New("no join channel provided")
-	}
-	if data.MsgSender == nil {
-		return nil, errors.New("no msgSender")
-	}
-	if data.InformMsgSender == nil {
-		return nil, errors.New("no inform msgSender")
-	}
-	if data.StatusSaver == nil {
-		return nil, errors.New("no statusSaver")
-	}
-	if data.Splitter == nil {
-		return nil, errors.New("no splitter set")
-	}
-	if data.Synthesizer == nil {
-		return nil, errors.New("no synthesizer set")
-	}
-	if data.Joiner == nil {
-		return nil, errors.New("no joiner set")
+	if err := validate(data); err != nil {
+		return nil, err
 	}
 	goapp.Log.Infof("Starting listen for messages")
 
@@ -96,6 +69,40 @@ func StartWorkerService(ctx context.Context, data *ServiceData) (<-chan struct{}
 	go listenQueue(ctxInt, data.JoinCh, join, data, cf)
 
 	return prepareCloseCh(wg), nil
+}
+
+func validate(data *ServiceData) error {
+	if data.UploadCh == nil {
+		return errors.New("no upload channel provided")
+	}
+	if data.SplitCh == nil {
+		return errors.New("no split channel provided")
+	}
+	if data.SynthesizeCh == nil {
+		return errors.New("no synthesize channel provided")
+	}
+	if data.JoinCh == nil {
+		return errors.New("no join channel provided")
+	}
+	if data.MsgSender == nil {
+		return errors.New("no msgSender")
+	}
+	if data.InformMsgSender == nil {
+		return errors.New("no inform msgSender")
+	}
+	if data.StatusSaver == nil {
+		return errors.New("no statusSaver")
+	}
+	if data.Splitter == nil {
+		return errors.New("no splitter set")
+	}
+	if data.Synthesizer == nil {
+		return errors.New("no synthesizer set")
+	}
+	if data.Joiner == nil {
+		return errors.New("no joiner set")
+	}
+	return nil
 }
 
 func prepareCloseCh(wg *sync.WaitGroup) <-chan struct{} {
