@@ -81,6 +81,8 @@ func Test_400(t *testing.T) {
 			wantCode: http.StatusBadRequest},
 		{name: "Voice", args: args{file: "file.txt", filep: "file", params: [][2]string{{"outputFormat", "wav"}}},
 			wantCode: http.StatusBadRequest},
+		{name: "Voice", args: args{file: "file.txt", filep: "file", params: [][2]string{{"speed", "aa"}}},
+			wantCode: http.StatusBadRequest},
 		{name: "Voice", args: args{file: "file.txt", filep: "file", params: [][2]string{{"outputFormat", "mp3"}}},
 			wantCode: http.StatusOK},
 	}
