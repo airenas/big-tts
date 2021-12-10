@@ -14,6 +14,10 @@ import (
 
 //go:generate pegomock generate --package=mocks --output=requestSaver.go -m github.com/airenas/big-tts/internal/pkg/upload RequestSaver
 
+//go:generate pegomock generate --package=mocks --output=fileReader.go -m github.com/airenas/big-tts/internal/pkg/result FileReader
+
+//go:generate pegomock generate --package=mocks --output=fileNameProvider.go -m github.com/airenas/big-tts/internal/pkg/result FileNameProvider
+
 //AttachMockToTest register pegomock verification to be passed to testing engine
 func AttachMockToTest(t *testing.T) {
 	pegomock.RegisterMockFailHandler(handleByTest(t))

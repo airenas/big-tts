@@ -36,8 +36,8 @@ type Data struct {
 func StartWebServer(data *Data) error {
 	goapp.Log.Infof("Starting BIG TTS Result service at %d", data.Port)
 
-	if data.Reader == nil {
-		return errors.New("no file reader")
+	if err := validate(data); err != nil {
+		return err
 	}
 
 	portStr := strconv.Itoa(data.Port)
@@ -52,10 +52,19 @@ func StartWebServer(data *Data) error {
 
 	w := goapp.Log.Writer()
 	defer w.Close()
-	l := log.New(w, "", 0)
-	gracehttp.SetLogger(l)
+	gracehttp.SetLogger(log.New(w, "", 0))
 
 	return gracehttp.Serve(e.Server)
+}
+
+func validate(data *Data) error {
+	if data.Reader == nil {
+		return errors.New("no file reader")
+	}
+	if data.NameProvider == nil {
+		return errors.New("no name provider")
+	}
+	return nil
 }
 
 var promMdlw *prometheus.Prometheus
