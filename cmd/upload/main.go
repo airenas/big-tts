@@ -15,6 +15,9 @@ import (
 
 func main() {
 	goapp.StartWithDefault()
+
+	printBanner()
+
 	cfg := goapp.Config
 	data := &upload.Data{}
 	data.Port = cfg.GetInt("port")
@@ -53,8 +56,6 @@ func main() {
 	}
 
 	data.MsgSender = rabbit.NewSender(msgChannelProvider)
-
-	printBanner()
 
 	err = upload.StartWebServer(data)
 	if err != nil {

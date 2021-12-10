@@ -49,13 +49,8 @@ type Data struct {
 //StartWebServer starts echo web service
 func StartWebServer(data *Data) error {
 	goapp.Log.Infof("Starting HTTP BIG TTS Line service at %d", data.Port)
-
-	if data.Saver == nil {
-		return errors.New("no file saver")
-	}
-
-	if data.ReqSaver == nil {
-		return errors.New("no request saver")
+	if err := validate(data); err != nil {
+		return err
 	}
 
 	portStr := strconv.Itoa(data.Port)
@@ -70,10 +65,25 @@ func StartWebServer(data *Data) error {
 
 	w := goapp.Log.Writer()
 	defer w.Close()
-	l := log.New(w, "", 0)
-	gracehttp.SetLogger(l)
+	gracehttp.SetLogger(log.New(w, "", 0))
 
 	return gracehttp.Serve(e.Server)
+}
+
+func validate(data *Data) error {
+	if data.Saver == nil {
+		return errors.New("no file saver")
+	}
+	if data.ReqSaver == nil {
+		return errors.New("no request saver")
+	}
+	if data.Configurator == nil {
+		return errors.New("no configurator")
+	}
+	if data.MsgSender == nil {
+		return errors.New("no msg sender")
+	}
+	return nil
 }
 
 var promMdlw *prometheus.Prometheus
