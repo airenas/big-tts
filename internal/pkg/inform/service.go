@@ -59,8 +59,8 @@ func StartWorkerService(ctx context.Context, data *ServiceData) (<-chan struct{}
 		return nil, err
 	}
 
-	ctxInt, cancelF := context.WithCancel(ctx)
-	go listenQueue(ctxInt, data.WorkCh, data, cancelF)
+	ctxInt, cancelF := context.WithCancel(context.Background())
+	go listenQueue(ctx, data.WorkCh, data, cancelF)
 	return ctxInt.Done(), nil
 }
 
