@@ -22,6 +22,8 @@ import (
 
 //go:generate pegomock generate --package=mocks --output=statusSaver.go -m github.com/airenas/big-tts/internal/pkg/synthesize StatusSaver
 
+//go:generate pegomock generate --package=mocks --output=cleaner.go -m github.com/airenas/big-tts/internal/pkg/clean Cleaner
+
 //AttachMockToTest register pegomock verification to be passed to testing engine
 func AttachMockToTest(t *testing.T) {
 	pegomock.RegisterMockFailHandler(handleByTest(t))
