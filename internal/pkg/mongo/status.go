@@ -5,6 +5,7 @@ import (
 	"github.com/airenas/big-tts/internal/pkg/persistence"
 	"github.com/airenas/go-app/pkg/goapp"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
@@ -56,5 +57,8 @@ func (ss *Status) Get(id string) (*persistence.Status, error) {
 
 	var m persistence.Status
 	err = c.FindOne(ctx, bson.M{"ID": id}).Decode(&m)
+	if err == mongo.ErrNoDocuments {
+		return nil, nil
+	}
 	return &m, mng.SkipNoDocErr(err)
 }
