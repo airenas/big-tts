@@ -78,11 +78,25 @@ out:
 	for i := 0; !stop; i++ {
 		stop, inF, outF = w.getFiles(i, msg)
 		if inF != "" {
+			// make sure we exit in case of error or cancelling before
+			// --- case syncCh <- struct{}{}: ---
+			select {
+			case <-ctx.Done():
+				goapp.Log.Warnf("Exit synthesizer loop")
+				errCh <- context.Canceled
+				break out
+			case err := <-errCh:
+				goapp.Log.Infof("Error occured, waiting to complete all jobs")
+				wg.Wait()
+				return err
+			default:
+			}
+
 			select {
 			case syncCh <- struct{}{}:
 			case <-ctx.Done():
 				goapp.Log.Warnf("Exit synthesizer loop")
-				errCh <- errors.New("canceled")
+				errCh <- context.Canceled
 				break out
 			case err := <-errCh:
 				goapp.Log.Infof("Error occured, waiting to complete all jobs")
@@ -208,7 +222,7 @@ func invoke(URL string, dataIn input, dataOut *result, saveTags []string) error 
 func checkStatus(resp *http.Response) error {
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		initialBytes := make([]byte, 100)
-		if (resp.Body != nil){
+		if resp.Body != nil {
 			resp.Body.Read(initialBytes)
 		}
 		return errors.Errorf("code: '%d'. Response: %s", resp.StatusCode, string(initialBytes))

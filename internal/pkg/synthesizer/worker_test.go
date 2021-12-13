@@ -3,11 +3,14 @@ package synthesizer
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
+	"sync/atomic"
 	"testing"
-	"encoding/json"
+	"time"
 
 	amessages "github.com/airenas/async-api/pkg/messages"
 	"github.com/airenas/big-tts/internal/pkg/messages"
@@ -149,6 +152,56 @@ func TestWorker_Do_Fail_Calc(t *testing.T) {
 	}
 	err = got.Do(context.Background(), &messages.TTSMessage{QueueMessage: amessages.QueueMessage{ID: "id1"}, OutputFormat: "mp3"})
 	assert.NotNil(t, err)
+}
+
+func TestWorker_Do_Exit_OnCancel(t *testing.T) {
+	got, err := NewWorker("in/{}", "new/{}/", "url", 1)
+	assert.Nil(t, err)
+	files := 0
+	got.existsFunc = func(s string) bool {
+		files++
+		return files < 2
+	}
+	got.createDirFunc = func(s string) error {
+		return nil
+	}
+	got.loadFunc = func(s string) ([]byte, error) {
+		return []byte("in"), nil
+	}
+	got.callFunc = func(s string, tm *messages.TTSMessage) ([]byte, error) {
+		return nil, errors.New("err")
+	}
+	ctx, cFunc := context.WithCancel(context.Background())
+	cFunc()
+	err = got.Do(ctx, &messages.TTSMessage{QueueMessage: amessages.QueueMessage{ID: "id1"}, OutputFormat: "mp3"})
+	assert.Equal(t, context.Canceled, err)
+}
+
+func TestWorker_Do_Exit_OnFailure(t *testing.T) {
+	got, err := NewWorker("in/{}", "new/{}/", "url", 10)
+	assert.Nil(t, err)
+	got.existsFunc = func(s string) bool {
+		return strings.HasSuffix(s, ".txt")
+	}
+	got.createDirFunc = func(s string) error {
+		return nil
+	}
+	got.loadFunc = func(s string) ([]byte, error) {
+		return []byte("in"), nil
+	}
+	var tCnt int64
+	tErr := errors.New("err")
+	got.callFunc = func(s string, tm *messages.TTSMessage) ([]byte, error) {
+		if atomic.AddInt64(&tCnt, 1) == 1 {
+			time.Sleep(time.Millisecond * 10)
+		} else {
+			time.Sleep(time.Millisecond * 100)
+		}
+		return nil, tErr
+	}
+	err = got.Do(context.Background(), &messages.TTSMessage{QueueMessage: amessages.QueueMessage{ID: "id1"}, OutputFormat: "mp3"})
+	assert.Equal(t, tErr, err)
+	assert.Equal(t, int64(10), tCnt)
 }
 
 func TestWorker_Do_WithRealInvoke(t *testing.T) {
