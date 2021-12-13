@@ -24,6 +24,14 @@ import (
 
 //go:generate pegomock generate --package=mocks --output=cleaner.go -m github.com/airenas/big-tts/internal/pkg/clean Cleaner
 
+//go:generate pegomock generate --package=mocks --output=emailSender.go -m github.com/airenas/big-tts/internal/pkg/inform Sender
+
+//go:generate pegomock generate --package=mocks --output=emailMaker.go -m github.com/airenas/big-tts/internal/pkg/inform EmailMaker
+
+//go:generate pegomock generate --package=mocks --output=emailRetriever.go -m github.com/airenas/big-tts/internal/pkg/inform EmailRetriever
+
+//go:generate pegomock generate --package=mocks --output=locker.go -m github.com/airenas/big-tts/internal/pkg/inform Locker
+
 //AttachMockToTest register pegomock verification to be passed to testing engine
 func AttachMockToTest(t *testing.T) {
 	pegomock.RegisterMockFailHandler(handleByTest(t))

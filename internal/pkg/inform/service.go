@@ -55,28 +55,35 @@ type ServiceData struct {
 // <-fc // waits for finish
 func StartWorkerService(ctx context.Context, data *ServiceData) (<-chan struct{}, error) {
 	goapp.Log.Infof("Starting listen for messages")
-	if data.TaskName == "" {
-		return nil, errors.New("no Task Name")
-	}
-	if data.EmailMaker == nil {
-		return nil, errors.New("no email maker")
-	}
-	if data.EmailRetriever == nil {
-		return nil, errors.New("no email retriever")
-	}
-	if data.EmailSender == nil {
-		return nil, errors.New("no sender")
-	}
-	if data.Locker == nil {
-		return nil, errors.New("no locker")
-	}
-	if data.WorkCh == nil {
-		return nil, errors.New("no work channel")
+	if err := validate(data); err != nil {
+		return nil, err
 	}
 
 	ctxInt, cancelF := context.WithCancel(ctx)
 	go listenQueue(ctxInt, data.WorkCh, data, cancelF)
 	return ctxInt.Done(), nil
+}
+
+func validate(data *ServiceData) error {
+	if data.TaskName == "" {
+		return errors.New("no Task Name")
+	}
+	if data.EmailMaker == nil {
+		return errors.New("no email maker")
+	}
+	if data.EmailRetriever == nil {
+		return errors.New("no email retriever")
+	}
+	if data.EmailSender == nil {
+		return errors.New("no sender")
+	}
+	if data.Locker == nil {
+		return errors.New("no locker")
+	}
+	if data.WorkCh == nil {
+		return errors.New("no work channel")
+	}
+	return nil
 }
 
 //work is main method to send the message
