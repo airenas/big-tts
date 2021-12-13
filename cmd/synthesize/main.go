@@ -14,7 +14,7 @@ import (
 	"github.com/airenas/big-tts/internal/pkg/mongo"
 	"github.com/airenas/big-tts/internal/pkg/splitter"
 	"github.com/airenas/big-tts/internal/pkg/synthesize"
-	"github.com/airenas/big-tts/internal/pkg/sythesizer"
+	"github.com/airenas/big-tts/internal/pkg/synthesizer"
 	"github.com/airenas/go-app/pkg/goapp"
 	"github.com/labstack/gommon/color"
 	"github.com/pkg/errors"
@@ -77,7 +77,7 @@ func main() {
 	if err != nil {
 		goapp.Log.Fatal(errors.Wrap(err, "can't init splitter"))
 	}
-	data.Synthesizer, err = sythesizer.NewWorker(cfg.GetString("splitter.outTemplate"),
+	data.Synthesizer, err = synthesizer.NewWorker(cfg.GetString("splitter.outTemplate"),
 		cfg.GetString("synthesizer.outTemplate"),
 		cfg.GetString("synthesizer.URL"),
 		cfg.GetInt("synthesizer.workers"))

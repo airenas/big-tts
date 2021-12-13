@@ -1,4 +1,4 @@
-package sythesizer
+package synthesizer
 
 import (
 	"bytes"
@@ -191,10 +191,8 @@ func invoke(URL string, dataIn input, dataOut *result, saveTags []string) error 
 		return errors.Wrapf(err, "can't call '%s'", req.URL.String())
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		bodyBytes, _ := ioutil.ReadAll(resp.Body)
-		return errors.Errorf("Can't invoke '%s'. Code: '%d'. Response: %s",
-			req.URL.String(), resp.StatusCode, string(bodyBytes))
+	if err := checkStatus(resp); err != nil {
+		return errors.Wrapf(err, "can't invoke '%s'", req.URL.String())
 	}
 	br, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -203,6 +201,17 @@ func invoke(URL string, dataIn input, dataOut *result, saveTags []string) error 
 	err = json.Unmarshal(br, dataOut)
 	if err != nil {
 		return errors.Wrap(err, "can't decode response")
+	}
+	return nil
+}
+
+func checkStatus(resp *http.Response) error {
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		initialBytes := make([]byte, 100)
+		if (resp.Body != nil){
+			resp.Body.Read(initialBytes)
+		}
+		return errors.Errorf("code: '%d'. Response: %s", resp.StatusCode, string(initialBytes))
 	}
 	return nil
 }
