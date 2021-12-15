@@ -157,6 +157,7 @@ type (
 		AllowCollectData *bool   `json:"saveRequest,omitempty"`
 		Speed            float32 `json:"speed,omitempty"`
 		Voice            string  `json:"voice,omitempty"`
+		Priority         int     `json:"priority,omitempty"`
 	}
 
 	result struct {
@@ -169,7 +170,8 @@ func (w *Worker) invokeService(data string, msg *messages.TTSMessage) ([]byte, e
 	inp := input{Text: data, OutputFormat: msg.OutputFormat,
 		Voice:            msg.Voice,
 		Speed:            float32(msg.Speed),
-		AllowCollectData: &msg.SaveRequest}
+		AllowCollectData: &msg.SaveRequest,
+		Priority:         300} // will indicate 300s wait on high load comparing to priority=0
 	var out result
 	err := invoke(w.serviceURL, inp, &out, msg.SaveTags)
 	if err != nil {
