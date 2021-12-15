@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -14,6 +14,7 @@ import (
 
 	amessages "github.com/airenas/async-api/pkg/messages"
 	"github.com/airenas/big-tts/internal/pkg/messages"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -255,4 +256,25 @@ func TestWorker_Do_WithRealInvokeFail(t *testing.T) {
 	}
 	err = got.Do(context.Background(), &messages.TTSMessage{QueueMessage: amessages.QueueMessage{ID: "id1"}, OutputFormat: "mp3"})
 	assert.NotNil(t, err)
+}
+
+func Test_getBodyInitialStr(t *testing.T) {
+	tests := []struct {
+		name string
+		args io.Reader
+		want string
+	}{
+		{name: "Empty", args: strings.NewReader(""), want: ""},
+		{name: "Simple", args: strings.NewReader("olia\nolia"), want: "olia\nolia"},
+		{name: "Simple", args: strings.NewReader("ĄŪolia\nolia"), want: "ĄŪolia\nolia"},
+		{name: "Simple", args: nil, want: "empty response"},
+		{name: "First 100", args: strings.NewReader(strings.Repeat("01234", 2000)), want: strings.Repeat("01234", 20) + "..."},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getBodyInitialStr(tt.args); got != tt.want {
+				t.Errorf("getBodyInitialStr() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

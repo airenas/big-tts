@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -223,11 +224,22 @@ func invoke(URL string, dataIn input, dataOut *result, saveTags []string) error 
 
 func checkStatus(resp *http.Response) error {
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		initialBytes := make([]byte, 100)
-		if resp.Body != nil {
-			resp.Body.Read(initialBytes)
-		}
-		return errors.Errorf("code: '%d'. Response: %s", resp.StatusCode, string(initialBytes))
+		return errors.Errorf("code: '%d'. Response: %s", resp.StatusCode, getBodyInitialStr(resp.Body))
 	}
 	return nil
+}
+
+func getBodyInitialStr(r io.Reader) string {
+	if r != nil {
+		initialBytes := make([]byte, 101)
+		n, err := r.Read(initialBytes)
+		if err == nil || err == io.EOF {
+			if (n > 100) {
+				return string(initialBytes[:100]) + "..."
+			}
+			return string(initialBytes[:n])
+		}
+		return "can't read response"
+	}
+	return "empty response"
 }
