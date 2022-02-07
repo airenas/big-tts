@@ -19,7 +19,7 @@ type Request struct {
 	statusSaver     *Status
 }
 
-//NewRequestSaver creates RequestSaver instance
+//NewRequest creates Request instance
 func NewRequest(sessionProvider *mng.SessionProvider) (*Request, error) {
 	f := Request{SessionProvider: sessionProvider, statusSaver: &Status{SessionProvider: sessionProvider}}
 	return &f, nil

@@ -25,14 +25,17 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 )
 
+//FileSaver provides save file functionality 
 type FileSaver interface {
 	Save(name string, r io.Reader) error
 }
 
+//MsgSender provides send msg functionality
 type MsgSender interface {
 	Send(msg amessages.Message, queue, replyQueue string) error
 }
 
+//RequestSaver saves requests to DB
 type RequestSaver interface {
 	Save(req *persistence.ReqData) error
 }

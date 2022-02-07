@@ -15,6 +15,7 @@ import (
 const (
 	headerDefaultFormat = "x-tts-default-output-format"
 	headerCollectData   = "x-tts-collect-data"
+	//HeaderSaveTags http header name for providing tags for saving to DB
 	HeaderSaveTags      = "x-tts-save-tags"
 )
 

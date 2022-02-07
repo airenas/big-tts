@@ -14,14 +14,17 @@ import (
 	"github.com/streadway/amqp"
 )
 
+//Worker wraps some work functionality
 type Worker interface {
 	Do(context.Context, *messages.TTSMessage) error
 }
 
+//MsgSender sends messages
 type MsgSender interface {
 	Send(msg amessages.Message, queue, replyQueue string) error
 }
 
+//StatusSaver persists data to DB
 type StatusSaver interface {
 	Save(ID string, status, err string) error
 }
@@ -47,7 +50,7 @@ type ServiceData struct {
 type prFunc func(msg *messages.TTSMessage, data *ServiceData) (bool, error)
 
 //StartWorkerService starts the event queue listener service to listen for events
-// returns
+//returns channel for tracking if all jobs are finished
 func StartWorkerService(ctx context.Context, data *ServiceData) (<-chan struct{}, error) {
 	if err := validate(data); err != nil {
 		return nil, err
