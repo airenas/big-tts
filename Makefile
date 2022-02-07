@@ -19,5 +19,12 @@ test/unit:
 	go test -v -race -count=1 ./...
 .PHONY: test/unit
 #####################################################################################
+## code vet and lint
+test/lint: 
+	go vet ./...
+	go get -u golang.org/x/lint/golint
+	golint -set_exit_status ./...
+.PHONY: test/lint
+#####################################################################################
 
 
