@@ -13,7 +13,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// RequestSaver saves process request to mongo db
+// Request provides request persistence
 type Request struct {
 	SessionProvider *mng.SessionProvider
 	statusSaver     *Status
@@ -46,6 +46,7 @@ func (rm *Request) Save(data *persistence.ReqData) error {
 	return rm.statusSaver.Save(data.ID, status.Uploaded.String(), "")
 }
 
+//GetResultFile returns file name by ID
 func (rm *Request) GetResultFile(id string) (string, error) {
 	goapp.Log.Infof("Getting file name by ID %s", id)
 	m, err := rm.loadData(id)
@@ -76,7 +77,7 @@ func (rm *Request) loadData(id string) (*persistence.ReqData, error) {
 	return &res, nil
 }
 
-//Get returns email by ID
+//GetEmail returns email by ID
 func (rm *Request) GetEmail(id string) (string, error) {
 	goapp.Log.Infof("Getting email by ID %s", id)
 	m, err := rm.loadData(id)

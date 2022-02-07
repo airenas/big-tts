@@ -26,5 +26,13 @@ test/lint:
 	golint -set_exit_status ./...
 .PHONY: test/lint
 #####################################################################################
+## cleans temporary data
+clean: clean/synthesize clean/clean clean/inform clean/result clean/status clean/upload
+	go mod tidy
+	go clean
+.PHONY: clean
+clean/%:
+	cd build/$* && $(MAKE) clean
+#####################################################################################
 
 

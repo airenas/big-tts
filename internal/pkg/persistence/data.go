@@ -3,6 +3,8 @@ package persistence
 import "time"
 
 type (
+
+	//ReqData table
 	ReqData struct {
 		ID           string
 		Voice        string
@@ -15,6 +17,7 @@ type (
 		SaveTags     []string
 	}
 
+	//Status information table
 	Status struct {
 		ID               string   `bson:"ID"`
 		Status           string   `bson:"status,omitempty"`

@@ -22,6 +22,7 @@ import (
 	"github.com/pkg/errors"
 )
 
+//Worker implements synthesize one part functionality
 type Worker struct {
 	inDir       string
 	outDir      string
@@ -36,6 +37,7 @@ type Worker struct {
 	callFunc      func(string, *messages.TTSMessage) ([]byte, error)
 }
 
+//NewWorker creates new synthesize worker
 func NewWorker(inTemplate, outTemplate string, url string, workerCount int) (*Worker, error) {
 	if !strings.Contains(inTemplate, "{}") {
 		return nil, errors.Errorf("no ID template in inTemplate")
@@ -70,6 +72,7 @@ func NewWorker(inTemplate, outTemplate string, url string, workerCount int) (*Wo
 	return res, nil
 }
 
+//Do synthesizes one part of a text
 func (w *Worker) Do(ctx context.Context, msg *messages.TTSMessage) error {
 	goapp.Log.Infof("Doing synthesize job for %s", msg.ID)
 	outDir := strings.ReplaceAll(w.outDir, "{}", msg.ID)

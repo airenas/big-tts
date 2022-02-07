@@ -16,6 +16,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 )
 
+//Cleaner is a wrapper for clean functionality
 type Cleaner interface {
 	Clean(ID string) error
 }
