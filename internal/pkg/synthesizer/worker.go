@@ -27,6 +27,7 @@ type Worker struct {
 	outDir      string
 	serviceURL  string
 	workerCount int
+	httpClient  http.Client
 
 	loadFunc      func(string) ([]byte, error)
 	saveFunc      func(string, []byte) error
@@ -55,6 +56,12 @@ func NewWorker(inTemplate, outTemplate string, url string, workerCount int) (*Wo
 	res.createDirFunc = func(name string) error { return os.MkdirAll(name, os.ModePerm) }
 	res.callFunc = res.invokeService
 	res.workerCount = workerCount
+	res.httpClient = http.Client{Transport: &http.Transport{
+		MaxIdleConns:        50,
+		MaxIdleConnsPerHost: 50,
+		IdleConnTimeout:     90 * time.Second,
+		MaxConnsPerHost:     50,
+	}}
 
 	goapp.Log.Infof("Synthesizer URL: %s", res.serviceURL)
 	goapp.Log.Infof("Synthesizer workers: %d", res.workerCount)
@@ -174,14 +181,14 @@ func (w *Worker) invokeService(data string, msg *messages.TTSMessage) ([]byte, e
 		AllowCollectData: &msg.SaveRequest,
 		Priority:         300} // will indicate 300s wait on high load comparing to priority=0
 	var out result
-	err := invoke(w.serviceURL, inp, &out, msg.SaveTags)
+	err := w.invokeRemote(inp, &out, msg.SaveTags)
 	if err != nil {
 		return nil, err
 	}
 	return base64.StdEncoding.DecodeString(out.AudioAsString)
 }
 
-func invoke(URL string, dataIn input, dataOut *result, saveTags []string) error {
+func (w *Worker) invokeRemote(dataIn input, dataOut *result, saveTags []string) error {
 	b := new(bytes.Buffer)
 	enc := json.NewEncoder(b)
 	enc.SetEscapeHTML(false)
@@ -189,9 +196,9 @@ func invoke(URL string, dataIn input, dataOut *result, saveTags []string) error 
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequest("POST", URL, b)
+	req, err := http.NewRequest("POST", w.serviceURL, b)
 	if err != nil {
-		return errors.Wrapf(err, "can't prepare request to '%s'", URL)
+		return errors.Wrapf(err, "can't prepare request to '%s'", w.serviceURL)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	if len(saveTags) > 0 {
@@ -207,8 +214,11 @@ func invoke(URL string, dataIn input, dataOut *result, saveTags []string) error 
 	if err != nil {
 		return errors.Wrapf(err, "can't call '%s'", req.URL.String())
 	}
-	defer resp.Body.Close()
-	if err := checkStatus(resp); err != nil {
+	defer func() {
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
+	}()
+	if err := goapp.ValidateHTTPResp(resp, 100); err != nil {
 		return errors.Wrapf(err, "can't invoke '%s'", req.URL.String())
 	}
 	br, err := ioutil.ReadAll(resp.Body)
@@ -220,26 +230,4 @@ func invoke(URL string, dataIn input, dataOut *result, saveTags []string) error 
 		return errors.Wrap(err, "can't decode response")
 	}
 	return nil
-}
-
-func checkStatus(resp *http.Response) error {
-	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return errors.Errorf("code: '%d'. Response: %s", resp.StatusCode, getBodyInitialStr(resp.Body))
-	}
-	return nil
-}
-
-func getBodyInitialStr(r io.Reader) string {
-	if r != nil {
-		initialBytes := make([]byte, 101)
-		n, err := r.Read(initialBytes)
-		if err == nil || err == io.EOF {
-			if (n > 100) {
-				return string(initialBytes[:100]) + "..."
-			}
-			return string(initialBytes[:n])
-		}
-		return "can't read response"
-	}
-	return "empty response"
 }
