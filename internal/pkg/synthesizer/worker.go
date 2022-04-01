@@ -218,7 +218,7 @@ func (w *Worker) invokeRemote(dataIn input, dataOut *result, saveTags []string) 
 		return errors.Wrapf(err, "can't call '%s'", req.URL.String())
 	}
 	defer func() {
-		_, _ = io.Copy(io.Discard, resp.Body)
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 10000))
 		_ = resp.Body.Close()
 	}()
 	if err := goapp.ValidateHTTPResp(resp, 100); err != nil {
