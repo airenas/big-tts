@@ -26,6 +26,21 @@ test/lint:
 	golint -set_exit_status ./...
 .PHONY: test/lint
 #####################################################################################
+## build docker for provided service
+build/%/dbuild: 
+	cd build/$* && $(MAKE) dbuild
+.PHONY: build/*/dbuild
+#####################################################################################
+## push docker for provided service
+build/%/dpush: 
+	cd build/$* && $(MAKE) dpush
+.PHONY: build/*/dpush
+#####################################################################################
+## scan docker for provided service
+build/%/dscan: 
+	cd build/$* && $(MAKE) dscan
+.PHONY: build/*/dscan
+#####################################################################################
 ## cleans temporary data
 clean: clean/synthesize clean/clean clean/inform clean/result clean/status clean/upload
 	go mod tidy
