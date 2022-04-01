@@ -25,7 +25,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 )
 
-//FileSaver provides save file functionality 
+//FileSaver provides save file functionality
 type FileSaver interface {
 	Save(name string, r io.Reader) error
 }
@@ -165,8 +165,12 @@ func upload(data *Data) func(echo.Context) error {
 			return errors.Wrap(err, "can not save file")
 		}
 
+		requestID := extractRequestID(c.Request().Header)
+		goapp.Log.Info("RequestID=%s", requestID)
+
 		inData.ID = id
 		inData.Filename = fileName
+		inData.RequestID = requestID
 		err = data.ReqSaver.Save(inData)
 		if err != nil {
 			goapp.Log.Error(err)
@@ -180,6 +184,7 @@ func upload(data *Data) func(echo.Context) error {
 			Speed:        inData.Speed,
 			OutputFormat: inData.OutputFormat,
 			SaveTags:     inData.SaveTags,
+			RequestID:    requestID,
 		}
 		err = data.MsgSender.Send(msg, messages.Upload, "")
 		if err != nil {
@@ -190,6 +195,10 @@ func upload(data *Data) func(echo.Context) error {
 		res := result{ID: id}
 		return c.JSON(http.StatusOK, res)
 	}
+}
+
+func extractRequestID(header http.Header) string {
+	return header.Get("x-doorman-requestid")
 }
 
 func getInputData(c echo.Context, cfg *TTSConfigutaror) (*persistence.ReqData, error) {

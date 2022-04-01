@@ -21,9 +21,10 @@ type TTSMessage struct {
 	Speed        float64  `json:"speed,omitempty"`
 	OutputFormat string   `json:"outputFormat,omitempty"`
 	SaveTags     []string `json:"tags,omitempty"`
+	RequestID    string   `json:"requestID,omitempty"`
 }
 
 func NewMessageFrom(m *TTSMessage) *TTSMessage {
 	return &TTSMessage{QueueMessage: m.QueueMessage, Voice: m.Voice, SaveRequest: m.SaveRequest,
-		Speed: m.Speed, SaveTags: m.SaveTags, OutputFormat: m.OutputFormat}
+		Speed: m.Speed, SaveTags: m.SaveTags, OutputFormat: m.OutputFormat, RequestID: m.RequestID}
 }

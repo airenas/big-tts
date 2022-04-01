@@ -15,12 +15,13 @@ type (
 		Created      time.Time
 		Email        string
 		SaveTags     []string
+		RequestID    string `bson:"requestID,omitempty"`
 	}
 
 	//Status information table
 	Status struct {
-		ID               string   `bson:"ID"`
-		Status           string   `bson:"status,omitempty"`
-		Error            string   `bson:"error,omitempty"`
+		ID     string `bson:"ID"`
+		Status string `bson:"status,omitempty"`
+		Error  string `bson:"error,omitempty"`
 	}
 )
