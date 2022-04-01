@@ -222,7 +222,7 @@ func (w *Worker) invokeRemote(dataIn input, dataOut *result, saveTags []string) 
 	}()
 	if err := goapp.ValidateHTTPResp(resp, 100); err != nil {
 		err = errors.Wrapf(err, "can't invoke '%s'", req.URL.String())
-		if resp.StatusCode >= 400 && resp.StatusCode < 500 {
+		if isNonRestorableErrCode(resp.StatusCode) {
 			return utils.NewErrNonRestorableUsage(err)
 		}
 		return err
@@ -236,4 +236,8 @@ func (w *Worker) invokeRemote(dataIn input, dataOut *result, saveTags []string) 
 		return errors.Wrap(err, "can't decode response")
 	}
 	return nil
+}
+
+func isNonRestorableErrCode(c int) bool {
+	return c >= 400 && c < 500
 }

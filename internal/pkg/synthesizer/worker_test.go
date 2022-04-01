@@ -13,8 +13,10 @@ import (
 
 	amessages "github.com/airenas/async-api/pkg/messages"
 	"github.com/airenas/big-tts/internal/pkg/messages"
+	"github.com/airenas/big-tts/internal/pkg/utils"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewWorker(t *testing.T) {
@@ -241,7 +243,7 @@ func TestWorker_Do_WithRealInvokeFail(t *testing.T) {
 	defer srv.Close()
 
 	got, err := NewWorker("in/{}", "new/{}/", srv.URL, 1)
-	assert.Nil(t, err)
+	require.Nil(t, err)
 	files := 0
 	got.existsFunc = func(s string) bool {
 		files++
@@ -255,4 +257,26 @@ func TestWorker_Do_WithRealInvokeFail(t *testing.T) {
 	}
 	err = got.Do(context.Background(), &messages.TTSMessage{QueueMessage: amessages.QueueMessage{ID: "id1"}, OutputFormat: "mp3"})
 	assert.NotNil(t, err)
+	var errTest *utils.ErrNonRestorableUsage
+	assert.ErrorAs(t, err, &errTest)
+}
+
+func Test_isNonRestorableErrCode(t *testing.T) {
+	tests := []struct {
+		name string
+		args int
+		want bool
+	}{
+		{name: "400", args: 400, want: true},
+		{name: "409", args: 409, want: true},
+		{name: "500", args: 500, want: false},
+		{name: "300", args: 300, want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isNonRestorableErrCode(tt.args); got != tt.want {
+				t.Errorf("isNonRestorableErrCose() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
