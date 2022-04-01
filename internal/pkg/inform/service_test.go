@@ -72,7 +72,7 @@ func Test_WorkMsg(t *testing.T) {
 	ch, err := StartWorkerService(tCtx, tData)
 	assert.Nil(t, err)
 
-	msg := amessages.InformMessage{QueueMessage: amessages.QueueMessage{ID: "olia"}, At: time.Now(), Type: amessages.InformType_Started}
+	msg := amessages.InformMessage{QueueMessage: amessages.QueueMessage{ID: "olia"}, At: time.Now(), Type: amessages.InformTypeStarted}
 	msgdata, _ := json.Marshal(msg)
 
 	tWrkCh <- amqp.Delivery{Body: msgdata}
@@ -83,10 +83,10 @@ func Test_WorkMsg(t *testing.T) {
 	tEmailMaker.VerifyWasCalledOnce().Make(matchers.AnyPtrToInformData())
 	gLockID, gLockType := tLocker.VerifyWasCalledOnce().Lock(pegomock.AnyString(), pegomock.AnyString()).GetCapturedArguments()
 	assert.Equal(t, "olia", gLockID)
-	assert.Equal(t, amessages.InformType_Started, gLockType)
+	assert.Equal(t, amessages.InformTypeStarted, gLockType)
 	gUnlockID, gUnlockType, gUnlockValue := tLocker.VerifyWasCalledOnce().UnLock(pegomock.AnyString(), pegomock.AnyString(), matchers.AnyPtrToInt()).GetCapturedArguments()
 	assert.Equal(t, "olia", gUnlockID)
-	assert.Equal(t, amessages.InformType_Started, gUnlockType)
+	assert.Equal(t, amessages.InformTypeStarted, gUnlockType)
 	assert.Equal(t, 2, *gUnlockValue)
 	tSender.VerifyWasCalledOnce().Send(matchers.AnyPtrToEmailEmail())
 }
@@ -96,7 +96,7 @@ func Test_WorkMsg_FailRetriever(t *testing.T) {
 	ch, err := StartWorkerService(tCtx, tData)
 	assert.Nil(t, err)
 
-	msg := amessages.InformMessage{QueueMessage: amessages.QueueMessage{ID: "olia"}, At: time.Now(), Type: amessages.InformType_Started}
+	msg := amessages.InformMessage{QueueMessage: amessages.QueueMessage{ID: "olia"}, At: time.Now(), Type: amessages.InformTypeStarted}
 	msgdata, _ := json.Marshal(msg)
 
 	pegomock.When(tEmailRetriever.GetEmail(pegomock.AnyString())).ThenReturn("", errors.New("err"))
@@ -116,7 +116,7 @@ func Test_WorkMsg_FailMaker(t *testing.T) {
 	ch, err := StartWorkerService(tCtx, tData)
 	assert.Nil(t, err)
 
-	msg := amessages.InformMessage{QueueMessage: amessages.QueueMessage{ID: "olia"}, At: time.Now(), Type: amessages.InformType_Started}
+	msg := amessages.InformMessage{QueueMessage: amessages.QueueMessage{ID: "olia"}, At: time.Now(), Type: amessages.InformTypeStarted}
 	msgdata, _ := json.Marshal(msg)
 
 	pegomock.When(tEmailMaker.Make(matchers.AnyPtrToInformData())).ThenReturn(nil, errors.New("err"))
@@ -136,7 +136,7 @@ func Test_WorkMsg_FailLocker(t *testing.T) {
 	ch, err := StartWorkerService(tCtx, tData)
 	assert.Nil(t, err)
 
-	msg := amessages.InformMessage{QueueMessage: amessages.QueueMessage{ID: "olia"}, At: time.Now(), Type: amessages.InformType_Started}
+	msg := amessages.InformMessage{QueueMessage: amessages.QueueMessage{ID: "olia"}, At: time.Now(), Type: amessages.InformTypeStarted}
 	msgdata, _ := json.Marshal(msg)
 
 	pegomock.When(tLocker.Lock(pegomock.AnyString(), pegomock.AnyString())).ThenReturn(errors.New("err"))
@@ -156,7 +156,7 @@ func Test_WorkMsg_FailSender(t *testing.T) {
 	ch, err := StartWorkerService(tCtx, tData)
 	assert.Nil(t, err)
 
-	msg := amessages.InformMessage{QueueMessage: amessages.QueueMessage{ID: "olia"}, At: time.Now(), Type: amessages.InformType_Started}
+	msg := amessages.InformMessage{QueueMessage: amessages.QueueMessage{ID: "olia"}, At: time.Now(), Type: amessages.InformTypeStarted}
 	msgdata, _ := json.Marshal(msg)
 
 	pegomock.When(tSender.Send(matchers.AnyPtrToEmailEmail())).ThenReturn(errors.New("err"))
@@ -169,7 +169,7 @@ func Test_WorkMsg_FailSender(t *testing.T) {
 	tLocker.VerifyWasCalledOnce().Lock(pegomock.AnyString(), pegomock.AnyString())
 	gUnlockID, gUnlockType, gUnlockValue := tLocker.VerifyWasCalledOnce().UnLock(pegomock.AnyString(), pegomock.AnyString(), matchers.AnyPtrToInt()).GetCapturedArguments()
 	assert.Equal(t, "olia", gUnlockID)
-	assert.Equal(t, amessages.InformType_Started, gUnlockType)
+	assert.Equal(t, amessages.InformTypeStarted, gUnlockType)
 	assert.Equal(t, 0, *gUnlockValue)
 	tSender.VerifyWasCalledOnce().Send(matchers.AnyPtrToEmailEmail())
 }

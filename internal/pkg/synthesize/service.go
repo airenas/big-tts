@@ -172,7 +172,7 @@ func processMsg(d *amqp.Delivery, f prFunc, data *ServiceData) error {
 			if errInt != nil {
 				goapp.Log.Error(errInt)
 			}
-			errInt = data.InformMsgSender.Send(newInformMessage(&message, amessages.InformType_Failed), messages.Inform, "")
+			errInt = data.InformMsgSender.Send(newInformMessage(&message, amessages.InformTypeFailed), messages.Inform, "")
 			if errInt != nil {
 				goapp.Log.Error(errInt)
 			}
@@ -208,7 +208,7 @@ func listenUpload(message *messages.TTSMessage, data *ServiceData) (bool, error)
 	if err != nil {
 		return true, err
 	}
-	err = data.InformMsgSender.Send(newInformMessage(message, amessages.InformType_Started), messages.Inform, "")
+	err = data.InformMsgSender.Send(newInformMessage(message, amessages.InformTypeStarted), messages.Inform, "")
 	if err != nil {
 		return true, err
 	}
@@ -257,7 +257,7 @@ func join(message *messages.TTSMessage, data *ServiceData) (bool, error) {
 	if err != nil {
 		return true, err
 	}
-	return true, data.InformMsgSender.Send(newInformMessage(message, amessages.InformType_Finished), messages.Inform, "")
+	return true, data.InformMsgSender.Send(newInformMessage(message, amessages.InformTypeFinished), messages.Inform, "")
 }
 
 func restoreUsage(message *messages.TTSMessage, data *ServiceData) (bool, error) {

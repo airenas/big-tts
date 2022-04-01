@@ -3,7 +3,7 @@ module github.com/airenas/big-tts
 go 1.17
 
 require (
-	github.com/airenas/async-api v0.1.1
+	github.com/airenas/async-api v0.2.47
 	github.com/airenas/go-app v0.3.20
 	github.com/facebookgo/grace v0.0.0-20180706040059-75cf19382434
 	github.com/google/uuid v1.1.2
