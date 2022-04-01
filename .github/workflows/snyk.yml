@@ -10,9 +10,9 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Build containers
-        run: make build/upload/dbuild version=latest  
+        run: make build/upload/dbuild build/synthesize/dbuild version=latest  
 
-      - name: Run Snyk to check Docker image for vulnerabilities
+      - name: Run Snyk to check Upload Docker image for vulnerabilities
         continue-on-error: true
         uses: snyk/actions/docker@master
         env:
@@ -24,9 +24,27 @@ jobs:
       - name: Make sarif file copy
         run: mv snyk.sarif snyk-upload.sarif
 
-      - name: Upload snyk result to GitHub Code Scanning
+      - name: Run Snyk to check Synthesize Docker image for vulnerabilities
+        continue-on-error: true
+        uses: snyk/actions/docker@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          image: airenas/big-tts-synthesize:latest
+          args: --file=build/synthesize/Dockerfile
+
+      - name: Make sarif file copy
+        run: mv snyk.sarif snyk-synthesize.sarif  
+
+      - name: Upload snyk upload result to GitHub Code Scanning
         uses: github/codeql-action/upload-sarif@v1
         with:
           sarif_file: snyk-upload.sarif
-          category: upload-analysis  
+          category: upload-analysis
+          
+      - name: Upload snyk synthesize result to GitHub Code Scanning
+        uses: github/codeql-action/upload-sarif@v1
+        with:
+          sarif_file: snyk-synthesize.sarif
+          category: synthesize-analysis      
 
