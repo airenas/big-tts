@@ -49,6 +49,8 @@ type Data struct {
 	MsgSender    MsgSender
 }
 
+const requestIDHEader = "x-doorman-requestid"
+
 //StartWebServer starts echo web service
 func StartWebServer(data *Data) error {
 	goapp.Log.Infof("Starting HTTP BIG TTS Line service at %d", data.Port)
@@ -166,7 +168,7 @@ func upload(data *Data) func(echo.Context) error {
 		}
 
 		requestID := extractRequestID(c.Request().Header)
-		goapp.Log.Info("RequestID=%s", requestID)
+		goapp.Log.Infof("RequestID=%s", requestID)
 
 		inData.ID = id
 		inData.Filename = fileName
@@ -198,7 +200,7 @@ func upload(data *Data) func(echo.Context) error {
 }
 
 func extractRequestID(header http.Header) string {
-	return header.Get("x-doorman-requestid")
+	return header.Get(requestIDHEader)
 }
 
 func getInputData(c echo.Context, cfg *TTSConfigutaror) (*persistence.ReqData, error) {

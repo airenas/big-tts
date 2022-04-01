@@ -2,7 +2,6 @@ package upload
 
 import (
 	"bytes"
-	"errors"
 	"io"
 	"io/ioutil"
 	"mime/multipart"
@@ -15,6 +14,7 @@ import (
 	"github.com/airenas/big-tts/internal/pkg/test/mocks/matchers"
 	"github.com/labstack/echo/v4"
 	"github.com/petergtz/pegomock"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -177,5 +177,11 @@ func newTestRequest(filep, file, bodyText string, params [][2]string) *http.Requ
 	writer.Close()
 	req := httptest.NewRequest("POST", "/upload", body)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set(requestIDHEader, "m:testRequestID")
 	return req
+}
+
+func Test_extractRequestID(t *testing.T) {
+	req := newTestRequest("file", "file.txt", "olia", nil)
+	assert.Equal(t, "m:testRequestID", extractRequestID(req.Header))
 }
