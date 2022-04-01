@@ -91,6 +91,9 @@ func validate(data *ServiceData) error {
 	if data.JoinCh == nil {
 		return errors.New("no join channel provided")
 	}
+	if data.RestoreUsageCh == nil {
+		return errors.New("no restore usage channel provided")
+	}
 	if data.MsgSender == nil {
 		return errors.New("no msgSender")
 	}
@@ -108,6 +111,9 @@ func validate(data *ServiceData) error {
 	}
 	if data.Joiner == nil {
 		return errors.New("no joiner set")
+	}
+	if data.UsageRestorer == nil {
+		return errors.New("no usage restorer set")
 	}
 	return nil
 }
@@ -144,6 +150,7 @@ func listenQueue(ctx context.Context, q <-chan amqp.Delivery, f prFunc, data *Se
 }
 
 func processMsg(d *amqp.Delivery, f prFunc, data *ServiceData) error {
+	goapp.Log.Infof("Got msg at :%s", d.Exchange)
 	var message messages.TTSMessage
 	if err := json.Unmarshal(d.Body, &message); err != nil {
 		d.Nack(false, false)
