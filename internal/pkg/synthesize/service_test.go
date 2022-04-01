@@ -10,6 +10,7 @@ import (
 	"github.com/airenas/big-tts/internal/pkg/messages"
 	"github.com/airenas/big-tts/internal/pkg/test/mocks"
 	"github.com/airenas/big-tts/internal/pkg/test/mocks/matchers"
+	"github.com/airenas/big-tts/internal/pkg/utils"
 	"github.com/petergtz/pegomock"
 	"github.com/pkg/errors"
 	"github.com/streadway/amqp"
@@ -145,6 +146,57 @@ func Test_UploadMsg_FailSave_Redelivered(t *testing.T) {
 	assert.Equal(t, messages.Inform, eQueue)
 }
 
+func Test_UploadMsg_SendRestore(t *testing.T) {
+	initTest(t)
+	ch, err := StartWorkerService(tCtx, tData)
+	require.Nil(t, err)
+	pegomock.When(tStatusMock.Save(pegomock.AnyString(), pegomock.AnyString(), pegomock.AnyString())).ThenReturn(errors.New("err"))
+
+	msg := messages.TTSMessage{QueueMessage: amessages.QueueMessage{ID: "olia"}, Voice: "aa", RequestID: "rID"}
+	msgdata, _ := json.Marshal(msg)
+	tUploadCh <- amqp.Delivery{Body: msgdata, Redelivered: true}
+	close(tUploadCh)
+	waitT(t, ch)
+
+	fMsg, fQueue, _ := tMsgSender.VerifyWasCalled(pegomock.Once()).Send(matchers.AnyMessagesMessage(), pegomock.AnyString(), pegomock.AnyString()).
+		GetCapturedArguments()
+	assert.Equal(t, messages.Fail, fQueue)
+	assert.Equal(t, "err", fMsg.(*messages.TTSMessage).Error)
+	assert.Equal(t, "rID", fMsg.(*messages.TTSMessage).RequestID)
+}
+
+func Test_UploadMsg_Restore_Skip(t *testing.T) {
+	initTest(t)
+	ch, err := StartWorkerService(tCtx, tData)
+	require.Nil(t, err)
+	pegomock.When(tStatusMock.Save(pegomock.AnyString(), pegomock.AnyString(), pegomock.AnyString())).
+		ThenReturn(utils.NewErrNonRestorableUsage(errors.New("err")))
+
+	msg := messages.TTSMessage{QueueMessage: amessages.QueueMessage{ID: "olia"}, Voice: "aa", RequestID: "rID"}
+	msgdata, _ := json.Marshal(msg)
+	tUploadCh <- amqp.Delivery{Body: msgdata, Redelivered: true}
+	close(tUploadCh)
+	waitT(t, ch)
+
+	tMsgSender.VerifyWasCalled(pegomock.Never()).Send(matchers.AnyMessagesMessage(), pegomock.AnyString(), pegomock.AnyString())
+}
+
+func Test_UploadMsg_Restore_SkipExchange(t *testing.T) {
+	initTest(t)
+	ch, err := StartWorkerService(tCtx, tData)
+	require.Nil(t, err)
+	pegomock.When(tStatusMock.Save(pegomock.AnyString(), pegomock.AnyString(), pegomock.AnyString())).
+		ThenReturn(errors.New("err"))
+
+	msg := messages.TTSMessage{QueueMessage: amessages.QueueMessage{ID: "olia"}, Voice: "aa", RequestID: "rID"}
+	msgdata, _ := json.Marshal(msg)
+	tUploadCh <- amqp.Delivery{Body: msgdata, Redelivered: true, Exchange: messages.Fail}
+	close(tUploadCh)
+	waitT(t, ch)
+
+	tMsgSender.VerifyWasCalled(pegomock.Never()).Send(matchers.AnyMessagesMessage(), pegomock.AnyString(), pegomock.AnyString())
+}
+
 func Test_SplitMsg(t *testing.T) {
 	initTest(t)
 	ch, err := StartWorkerService(tCtx, tData)
@@ -211,6 +263,21 @@ func Test_JoinMsg(t *testing.T) {
 	tStatusMock.VerifyWasCalled(pegomock.Twice()).Save(pegomock.AnyString(), pegomock.AnyString(), pegomock.AnyString())
 	tInfSender.VerifyWasCalledOnce().Send(matchers.AnyMessagesMessage(), pegomock.AnyString(), pegomock.AnyString())
 	tJoinWrk.VerifyWasCalledOnce().Do(matchers.AnyContextContext(), matchers.AnyPtrToMessagesTTSMessage())
+}
+
+func Test_RestoreMsg(t *testing.T) {
+	initTest(t)
+	ch, err := StartWorkerService(tCtx, tData)
+	require.Nil(t, err)
+
+	msg := messages.TTSMessage{QueueMessage: amessages.QueueMessage{ID: "olia"}, Voice: "aa", RequestID: "rID"}
+	msgdata, _ := json.Marshal(msg)
+
+	tRestoreCh <- amqp.Delivery{Body: msgdata}
+	close(tRestoreCh)
+	waitT(t, ch)
+
+	tRestoreWrk.VerifyWasCalledOnce().Do(matchers.AnyContextContext(), matchers.AnyPtrToMessagesTTSMessage())
 }
 
 func Test_validate(t *testing.T) {
