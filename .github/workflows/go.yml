@@ -42,11 +42,6 @@ jobs:
     - name: Go report
       uses: creekorful/goreportcard-action@v1.0
 
-
-    - name: Update/clean dependencies
-      run: |
-        go mod tidy
-
     - name: Calc coverage
       run: |
         go test -v -covermode=count -coverprofile=coverage.out ./...

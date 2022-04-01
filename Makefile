@@ -8,7 +8,7 @@ help:
 .PHONY: help
 #####################################################################################
 generate:
-	go get github.com/petergtz/pegomock/...
+	go install github.com/petergtz/pegomock/...@latest
 	go generate ./...
 
 renew-async-api:
@@ -22,7 +22,7 @@ test/unit:
 ## code vet and lint
 test/lint: 
 	go vet ./...
-	go get -u golang.org/x/lint/golint
+	go install golang.org/x/lint/golint@latest
 	golint -set_exit_status ./...
 .PHONY: test/lint
 #####################################################################################
