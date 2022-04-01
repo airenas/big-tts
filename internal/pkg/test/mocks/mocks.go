@@ -39,6 +39,7 @@ func AttachMockToTest(t *testing.T) {
 
 func handleByTest(t *testing.T) pegomock.FailHandler {
 	return func(message string, callerSkip ...int) {
+		t.Helper()
 		if message != "" {
 			t.Error(message)
 		}
