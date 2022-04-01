@@ -47,7 +47,7 @@ func (ss *Status) Save(ID string, st, errStr string) error {
 
 // Get retrieves status from DB
 func (ss *Status) Get(id string) (*persistence.Status, error) {
-	goapp.Log.Infof("Retrieving status %s", id)
+	goapp.Log.Infof("Retrieving status %s", mng.Sanitize(id))
 
 	c, ctx, cancel, err := mng.NewCollection(ss.SessionProvider, statusTable)
 	if err != nil {

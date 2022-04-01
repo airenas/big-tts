@@ -67,7 +67,7 @@ func (rm *Request) loadData(id string) (*persistence.ReqData, error) {
 	defer cancel()
 
 	var res persistence.ReqData
-	err = c.FindOne(ctx, bson.M{"ID": id}).Decode(&res)
+	err = c.FindOne(ctx, bson.M{"ID": mng.Sanitize(id)}).Decode(&res)
 	if err == mgodr.ErrNoDocuments {
 		return nil, errors.Wrap(err, "no request by ID")
 	}
