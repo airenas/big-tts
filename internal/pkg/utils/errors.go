@@ -13,7 +13,7 @@ func NewErrNonRestorableUsage(err error) error {
 }
 
 func (e *ErrNonRestorableUsage) Error() string {
-	return "non restorabke usage error: " + e.err.Error()
+	return "non restorable usage error: " + e.err.Error()
 }
 
 func (e *ErrNonRestorableUsage) Unwrap() error {
