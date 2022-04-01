@@ -9,6 +9,7 @@ import (
 	amessages "github.com/airenas/async-api/pkg/messages"
 	"github.com/airenas/big-tts/internal/pkg/messages"
 	"github.com/airenas/big-tts/internal/pkg/status"
+	"github.com/airenas/big-tts/internal/pkg/utils"
 	"github.com/airenas/go-app/pkg/goapp"
 	"github.com/pkg/errors"
 	"github.com/streadway/amqp"
@@ -38,10 +39,12 @@ type ServiceData struct {
 	SplitCh         <-chan amqp.Delivery
 	SynthesizeCh    <-chan amqp.Delivery
 	JoinCh          <-chan amqp.Delivery
+	RestoreUsageCh  <-chan amqp.Delivery
 
-	Splitter    Worker
-	Synthesizer Worker
-	Joiner      Worker
+	Splitter      Worker
+	Synthesizer   Worker
+	Joiner        Worker
+	UsageRestorer Worker
 
 	StopCtx context.Context
 }
@@ -65,11 +68,12 @@ func StartWorkerService(ctx context.Context, data *ServiceData) (<-chan struct{}
 		wg.Done()
 	}
 
-	wg.Add(4)
+	wg.Add(5)
 	go listenQueue(ctxInt, data.UploadCh, listenUpload, data, cf)
 	go listenQueue(ctxInt, data.SplitCh, split, data, cf)
 	go listenQueue(ctxInt, data.SynthesizeCh, synthesize, data, cf)
 	go listenQueue(ctxInt, data.JoinCh, join, data, cf)
+	go listenQueue(ctxInt, data.RestoreUsageCh, restoreUsage, data, cf)
 
 	return prepareCloseCh(wg), nil
 }
@@ -109,7 +113,7 @@ func validate(data *ServiceData) error {
 }
 
 func prepareCloseCh(wg *sync.WaitGroup) <-chan struct{} {
-	res := make(chan struct{}, 2)
+	res := make(chan struct{})
 	go func() {
 		wg.Wait()
 		close(res)
@@ -157,18 +161,33 @@ func processMsg(d *amqp.Delivery, f prFunc, data *ServiceData) error {
 		}
 		requeue := redeliver && !d.Redelivered
 		if !requeue {
-			err := data.StatusSaver.Save(message.ID, "", err.Error())
-			if err != nil {
-				goapp.Log.Error(err)
+			errInt := data.StatusSaver.Save(message.ID, "", err.Error())
+			if errInt != nil {
+				goapp.Log.Error(errInt)
 			}
-			err = data.InformMsgSender.Send(newInformMessage(&message, amessages.InformType_Failed), messages.Inform, "")
-			if err != nil {
-				goapp.Log.Error(err)
+			errInt = data.InformMsgSender.Send(newInformMessage(&message, amessages.InformType_Failed), messages.Inform, "")
+			if errInt != nil {
+				goapp.Log.Error(errInt)
+			}
+			if needToRestoreUsage(err) && d.Exchange != messages.Fail && message.Error == "" {
+				failMsg := messages.NewMessageFrom(&message)
+				failMsg.Error = err.Error()
+				err = data.MsgSender.Send(failMsg, messages.Fail, "")
+				if err != nil {
+					goapp.Log.Error(err)
+				}
+			} else {
+				goapp.Log.Info("NonRestorableError - do not send msg for restoring usage")
 			}
 		}
 		return d.Nack(false, requeue) // redeliver for first time
 	}
 	return d.Ack(false)
+}
+
+func needToRestoreUsage(err error) bool {
+	var errTest *utils.ErrNonRestorableUsage
+	return !errors.As(err, &errTest)
 }
 
 //synthesize starts the synthesize process
@@ -232,6 +251,11 @@ func join(message *messages.TTSMessage, data *ServiceData) (bool, error) {
 		return true, err
 	}
 	return true, data.InformMsgSender.Send(newInformMessage(message, amessages.InformType_Finished), messages.Inform, "")
+}
+
+func restoreUsage(message *messages.TTSMessage, data *ServiceData) (bool, error) {
+	goapp.Log.Infof("Got %s msg :%s", messages.Fail, message.ID)
+	return true, data.UsageRestorer.Do(data.StopCtx, message)
 }
 
 func newInformMessage(msg *messages.TTSMessage, it string) *amessages.InformMessage {

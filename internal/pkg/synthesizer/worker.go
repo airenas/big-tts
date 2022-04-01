@@ -59,8 +59,8 @@ func NewWorker(inTemplate, outTemplate string, url string, workerCount int) (*Wo
 	res.callFunc = res.invokeService
 	res.workerCount = workerCount
 	res.httpClient = http.Client{Transport: &http.Transport{
-		MaxIdleConns:        50,
-		MaxIdleConnsPerHost: 50,
+		MaxIdleConns:        40,
+		MaxIdleConnsPerHost: 40,
 		IdleConnTimeout:     90 * time.Second,
 		MaxConnsPerHost:     50,
 	}}
@@ -212,8 +212,7 @@ func (w *Worker) invokeRemote(dataIn input, dataOut *result, saveTags []string) 
 	defer cancelF()
 	req = req.WithContext(ctx)
 	goapp.Log.Info("Call: ", req.URL.String())
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := w.httpClient.Do(req)
 	if err != nil {
 		return errors.Wrapf(err, "can't call '%s'", req.URL.String())
 	}
@@ -222,7 +221,11 @@ func (w *Worker) invokeRemote(dataIn input, dataOut *result, saveTags []string) 
 		_ = resp.Body.Close()
 	}()
 	if err := goapp.ValidateHTTPResp(resp, 100); err != nil {
-		return errors.Wrapf(err, "can't invoke '%s'", req.URL.String())
+		err = errors.Wrapf(err, "can't invoke '%s'", req.URL.String())
+		if resp.StatusCode >= 400 && resp.StatusCode < 500 {
+			return utils.NewErrNonRestorableUsage(err)
+		}
+		return err
 	}
 	br, err := ioutil.ReadAll(resp.Body)
 	if err != nil {

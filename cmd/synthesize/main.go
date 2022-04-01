@@ -15,6 +15,7 @@ import (
 	"github.com/airenas/big-tts/internal/pkg/splitter"
 	"github.com/airenas/big-tts/internal/pkg/synthesize"
 	"github.com/airenas/big-tts/internal/pkg/synthesizer"
+	"github.com/airenas/big-tts/internal/pkg/usage"
 	"github.com/airenas/go-app/pkg/goapp"
 	"github.com/labstack/gommon/color"
 	"github.com/pkg/errors"
@@ -58,6 +59,9 @@ func main() {
 	if data.JoinCh, err = makeQChannel(ch, msgChannelProvider.QueueName(messages.Join)); err != nil {
 		goapp.Log.Fatal(err)
 	}
+	if data.RestoreUsageCh, err = makeQChannel(ch, msgChannelProvider.QueueName(messages.Fail)); err != nil {
+		goapp.Log.Fatal(err)
+	}
 
 	data.MsgSender = rabbit.NewSender(msgChannelProvider)
 	data.InformMsgSender = data.MsgSender
@@ -83,6 +87,10 @@ func main() {
 		cfg.GetInt("synthesizer.workers"))
 	if err != nil {
 		goapp.Log.Fatal(errors.Wrap(err, "can't init synthesizer"))
+	}
+	data.UsageRestorer, err = usage.NewWorker(cfg.GetString("doorman.URL"))
+	if err != nil {
+		goapp.Log.Fatal(errors.Wrap(err, "can't init usage restorer"))
 	}
 	data.Joiner, err = joiner.NewWorker(cfg.GetString("synthesizer.outTemplate"),
 		cfg.GetString("joiner.outTemplate"),

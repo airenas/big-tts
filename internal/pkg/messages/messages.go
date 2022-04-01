@@ -10,6 +10,7 @@ const (
 	Split      = st + "Split"
 	Synthesize = st + "Synthesize"
 	Join       = st + "Join"
+	Fail       = st + "Fail"
 
 	Inform = st + "Inform"
 )
