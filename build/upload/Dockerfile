@@ -11,14 +11,12 @@ ENV CGO_ENABLED=0
 # precache go.mod dependencies
 COPY go.mod /go/src/
 COPY go.sum /go/src/
-RUN go mod download
-
-# copy src
-COPY . /go/src
+COPY cmd /go/src/cmd
+COPY internal /go/src/internal
 
 RUN CGO_ENABLED=0 go build -o /go/bin/upload -ldflags "-X main.version=$BUILD_VERSION" cmd/upload/main.go
 #####################################################################################
-FROM iron/base:3.14.0 as runner
+FROM alpine:3.15 as runner
 
 EXPOSE 8000
 

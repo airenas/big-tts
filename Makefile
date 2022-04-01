@@ -43,7 +43,7 @@ build/%/dscan:
 #####################################################################################
 ## cleans temporary data
 clean: clean/clean clean/inform clean/result clean/status
-	go mod tidy
+	go mod tidy -compat=1.17
 	go clean
 .PHONY: clean
 clean/%:
