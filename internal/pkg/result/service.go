@@ -17,10 +17,12 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 )
 
+// FileReader loads file by name
 type FileReader interface {
 	Load(name string) (api.FileRead, error)
 }
 
+// FileNameProvider provides name for result file
 type FileNameProvider interface {
 	GetResultFile(id string) (string, error)
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Worker is a main class implementing join functionality
 type Worker struct {
 	inDir    string
 	savePath string
@@ -27,6 +28,7 @@ type Worker struct {
 	convertFunc   func([]string) error
 }
 
+// NewWorker creates new join worker
 func NewWorker(inDir, savePath, workPath string, metadata []string) (*Worker, error) {
 	if !strings.Contains(inDir, "{}") {
 		return nil, errors.Errorf("no ID template in inDir")
@@ -47,6 +49,7 @@ func NewWorker(inDir, savePath, workPath string, metadata []string) (*Worker, er
 	return res, nil
 }
 
+// Do is an entry function for join worker
 func (w *Worker) Do(ctx context.Context, msg *messages.TTSMessage) error {
 	goapp.Log.Infof("Doing join job for %s", msg.ID)
 	files, err := w.makeList(msg.ID, msg.OutputFormat)

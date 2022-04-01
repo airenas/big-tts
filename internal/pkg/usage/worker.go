@@ -45,11 +45,11 @@ func (w *Worker) Do(ctx context.Context, msg *messages.TTSMessage) error {
 		goapp.Log.Warn("no requestID")
 		return nil
 	}
-	service, rId, err := parse(msg.RequestID)
+	service, rID, err := parse(msg.RequestID)
 	if err != nil {
 		return errors.Wrapf(err, "wrong requestID format '%s'", msg.RequestID)
 	}
-	return w.invoke(service, rId, msg.Error)
+	return w.invoke(service, rID, msg.Error)
 }
 
 func parse(s string) (string, string, error) {

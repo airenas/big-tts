@@ -17,6 +17,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 )
 
+// StatusProvider returns status for the ID
 type StatusProvider interface {
 	Get(id string) (*persistence.Status, error)
 }

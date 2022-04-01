@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Worker for implementing text split
 type Worker struct {
 	loadPath string
 	savePath string
@@ -25,6 +26,7 @@ type Worker struct {
 	wantedChars   int
 }
 
+// NewWorker initiates new worker
 func NewWorker(loadPath string, savePath string) (*Worker, error) {
 	if !strings.Contains(loadPath, "{}") {
 		return nil, errors.Errorf("no ID template in load path")
@@ -40,6 +42,7 @@ func NewWorker(loadPath string, savePath string) (*Worker, error) {
 	return res, nil
 }
 
+// Do main worker's method
 func (w *Worker) Do(ctx context.Context, msg *messages.TTSMessage) error {
 	goapp.Log.Infof("Doing split job for %s", msg.ID)
 	text, err := w.load(msg.ID)

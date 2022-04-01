@@ -5,16 +5,22 @@ import (
 )
 
 const (
-	st         = "BigTTS/"
-	Upload     = st + "Upload"
-	Split      = st + "Split"
+	st = "BigTTS/"
+	// Upload queue name
+	Upload = st + "Upload"
+	// Split queue name
+	Split = st + "Split"
+	// Synthesize queue name
 	Synthesize = st + "Synthesize"
-	Join       = st + "Join"
-	Fail       = st + "Fail"
-
+	// Join queue name
+	Join = st + "Join"
+	// Fail queue name
+	Fail = st + "Fail"
+	// Inform  queue name
 	Inform = st + "Inform"
 )
 
+// TTSMessage main message passing through in big tts system
 type TTSMessage struct {
 	amessages.QueueMessage
 	Voice        string   `json:"voice,omitempty"`
@@ -25,6 +31,7 @@ type TTSMessage struct {
 	RequestID    string   `json:"requestID,omitempty"`
 }
 
+// NewMessageFrom creates a copy of a message
 func NewMessageFrom(m *TTSMessage) *TTSMessage {
 	return &TTSMessage{QueueMessage: m.QueueMessage, Voice: m.Voice, SaveRequest: m.SaveRequest,
 		Speed: m.Speed, SaveTags: m.SaveTags, OutputFormat: m.OutputFormat, RequestID: m.RequestID}
