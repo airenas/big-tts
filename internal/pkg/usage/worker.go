@@ -80,7 +80,7 @@ func (w *Worker) invoke(service, requestID, errorMsg string) error {
 	defer cancelF()
 	req = req.WithContext(ctx)
 
-	goapp.Log.Info("Call: ", req.URL.String())
+	goapp.Log.Infof("Call: %s", goapp.Sanitize(req.URL.String()))
 	resp, err := w.httpClient.Do(req)
 
 	if err != nil {

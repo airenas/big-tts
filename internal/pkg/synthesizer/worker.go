@@ -211,7 +211,7 @@ func (w *Worker) invokeRemote(dataIn input, dataOut *result, saveTags []string) 
 	ctx, cancelF := context.WithTimeout(context.Background(), time.Minute*10)
 	defer cancelF()
 	req = req.WithContext(ctx)
-	goapp.Log.Info("Call: ", req.URL.String())
+	goapp.Log.Infof("Call: %s", goapp.Sanitize(req.URL.String()))
 	resp, err := w.httpClient.Do(req)
 	if err != nil {
 		return errors.Wrapf(err, "can't call '%s'", req.URL.String())

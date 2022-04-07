@@ -27,7 +27,7 @@ func NewRequest(sessionProvider *mng.SessionProvider) (*Request, error) {
 
 // Save saves resquest to DB
 func (rm *Request) Save(data *persistence.ReqData) error {
-	goapp.Log.Infof("Saving request %s: %s", data.ID, data.Email)
+	goapp.Log.Infof("Saving request %s: %s", data.ID, goapp.Sanitize(data.Email))
 
 	c, ctx, cancel, err := mng.NewCollection(rm.SessionProvider, RequestTable)
 	if err != nil {
@@ -48,7 +48,7 @@ func (rm *Request) Save(data *persistence.ReqData) error {
 
 //GetResultFile returns file name by ID
 func (rm *Request) GetResultFile(id string) (string, error) {
-	goapp.Log.Infof("Getting file name by ID %s", id)
+	goapp.Log.Infof("Getting file name by ID %s", goapp.Sanitize(id))
 	m, err := rm.loadData(id)
 	if err != nil {
 		return "", err

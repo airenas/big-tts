@@ -168,7 +168,7 @@ func upload(data *Data) func(echo.Context) error {
 		}
 
 		requestID := extractRequestID(c.Request().Header)
-		goapp.Log.Infof("RequestID=%s", requestID)
+		goapp.Log.Infof("RequestID=%s", goapp.Sanitize(requestID))
 
 		inData.ID = id
 		inData.Filename = fileName
