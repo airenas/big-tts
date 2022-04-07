@@ -1,0 +1,63 @@
+{{define "mail.Started.subject"}}Pradėta Sintezės Užduotis{{end}}
+{{define "mail.Started.text"}}
+Sveiki, 
+
+Informuojame, kad {{.Date}} pradėta sintezės užduotis.
+
+Užduočiai suteiktas ID: {{.ID}}.
+
+Užduoties statusą galite stebėti čia: {{.URL}}
+{{end}}
+
+{{define "mail.Started.html"}}
+<html><body>
+<i>Sveiki,</i>
+<p>
+Informuojame, kad <b>{{.Date}}</b> pradėta sintezės užduotis.
+</p><p>
+Užduočiai suteiktas ID: <b><i>{{.ID}}</i></b>.
+</p><p>
+Užduoties statusą galite stebėti <b><a href="{{.URL}}">čia</a></b>.
+</p>
+</body></html>
+{{end}}
+
+{{define "mail.Finished.subject"}}Baigta Sintezės Užduotis{{end}}
+{{define "mail.Finished.text"}}
+Sveiki, 
+
+Informuojame, kad sintezės užduotis {{.ID}} baigta.
+
+Rezultato nuoroda: {{.URL}}
+{{end}}
+{{define "mail.Finished.html"}}
+<html><body>
+<i>Sveiki,</i>
+<p>
+Informuojame, kad sintezės užduotis {{.ID}} <b>baigta</b>.
+</p>
+<p>
+Rezultato nuoroda: <b><a href="{{.URL}}">čia</a></b>.
+</p>
+</body></html>
+{{end}}
+
+{{define "mail.Failed.subject"}}Nepavyko Sintezės Užduotis{{end}}
+{{define "mail.Failed.text"}}
+Sveiki,
+        
+Informuojame, kad sintezės užduotis {{.ID}} nepavyko.
+
+Daugiau informacijos čia: {{.URL}}
+{{end}}
+{{define "mail.Failed.html"}}
+<html><body>
+<i>Sveiki,</i>
+<p>
+Informuojame, kad sintezės užduotis {{.ID}} <b>nepavyko</b>.
+</p>
+<p>
+Daugiau informacijos <b><a href="{{.URL}}">čia</a></b>.
+</p>
+</body></html>
+{{end}}

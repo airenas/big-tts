@@ -54,7 +54,7 @@ func main() {
 	}
 	defer mongoSessionProvider.Close()
 
-	data.EmailMaker, err = ainform.NewSimpleEmailMaker(cfg)
+	data.EmailMaker, err = ainform.NewTemplateEmailMaker(cfg)
 	if err != nil {
 		goapp.Log.Fatal(errors.Wrap(err, "can't init email maker"))
 	}
