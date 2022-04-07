@@ -56,7 +56,7 @@ func (ss *Status) Get(id string) (*persistence.Status, error) {
 	defer cancel()
 
 	var m persistence.Status
-	err = c.FindOne(ctx, bson.M{"ID": id}).Decode(&m)
+	err = c.FindOne(ctx, bson.M{"ID": mng.Sanitize(id)}).Decode(&m)
 	if err == mongo.ErrNoDocuments {
 		return nil, nil
 	}
