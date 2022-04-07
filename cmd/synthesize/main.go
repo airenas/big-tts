@@ -128,7 +128,8 @@ func main() {
 
 func initQueues(prv *rabbit.ChannelProvider) error {
 	goapp.Log.Info("Initializing queues")
-	for _, n := range [...]string{messages.Split, messages.Synthesize, messages.Upload, messages.Join, messages.Inform} {
+	for _, n := range [...]string{messages.Split, messages.Synthesize, messages.Upload, messages.Join,
+		messages.Inform, messages.Fail} {
 		err := prv.RunOnChannelWithRetry(func(ch *amqp.Channel) error {
 			_, err := rabbit.DeclareQueue(ch, prv.QueueName(n))
 			return err
