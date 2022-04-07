@@ -5,11 +5,11 @@ on:
   pull_request:
     branches: [ main ]
 jobs:
-  test:
+  analyze:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        container: [synthesize, upload]
+        container: [synthesize, upload, inform]
     steps:
       - uses: actions/checkout@v2
 
