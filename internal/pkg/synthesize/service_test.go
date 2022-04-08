@@ -181,7 +181,7 @@ func Test_UploadMsg_Restore_Skip(t *testing.T) {
 	tMsgSender.VerifyWasCalled(pegomock.Never()).Send(matchers.AnyMessagesMessage(), pegomock.AnyString(), pegomock.AnyString())
 }
 
-func Test_UploadMsg_Restore_SkipExchange(t *testing.T) {
+func Test_UploadMsg_Restore_SkipRoutingKey(t *testing.T) {
 	initTest(t)
 	ch, err := StartWorkerService(tCtx, tData)
 	require.Nil(t, err)
@@ -190,7 +190,7 @@ func Test_UploadMsg_Restore_SkipExchange(t *testing.T) {
 
 	msg := messages.TTSMessage{QueueMessage: amessages.QueueMessage{ID: "olia"}, Voice: "aa", RequestID: "rID"}
 	msgdata, _ := json.Marshal(msg)
-	tUploadCh <- amqp.Delivery{Body: msgdata, Redelivered: true, Exchange: messages.Fail}
+	tUploadCh <- amqp.Delivery{Body: msgdata, Redelivered: true, RoutingKey: messages.Fail}
 	close(tUploadCh)
 	waitT(t, ch)
 

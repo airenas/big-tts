@@ -150,7 +150,7 @@ func listenQueue(ctx context.Context, q <-chan amqp.Delivery, f prFunc, data *Se
 }
 
 func processMsg(d *amqp.Delivery, f prFunc, data *ServiceData) error {
-	goapp.Log.Infof("Got msg at :%s", d.Exchange)
+	goapp.Log.Infof("Got msg: %s", d.RoutingKey)
 	var message messages.TTSMessage
 	if err := json.Unmarshal(d.Body, &message); err != nil {
 		d.Nack(false, false)
@@ -176,7 +176,7 @@ func processMsg(d *amqp.Delivery, f prFunc, data *ServiceData) error {
 			if errInt != nil {
 				goapp.Log.Error(errInt)
 			}
-			if needToRestoreUsage(err) && d.Exchange != messages.Fail && message.Error == "" {
+			if needToRestoreUsage(err) && d.RoutingKey != messages.Fail && message.Error == "" {
 				failMsg := messages.NewMessageFrom(&message)
 				failMsg.Error = err.Error()
 				err = data.MsgSender.Send(failMsg, messages.Fail, "")
