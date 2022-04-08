@@ -42,7 +42,7 @@ func TestMain(m *testing.M) {
 
 	cfg.httpClient = &http.Client{Timeout: time.Second * 5}
 
-	tCtx, cf := context.WithTimeout(context.Background(), time.Second*20)
+	tCtx, cf := context.WithTimeout(context.Background(), time.Second*60)
 	defer cf()
 	waitForOpenOrFail(tCtx, cfg.uploadURL)
 	waitForOpenOrFail(tCtx, cfg.statusURL)
