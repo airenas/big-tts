@@ -12,7 +12,7 @@ help:
 #####################################################################################
 ## start all containers
 start: 
-	docker-compose up $(async) mongo rabbitmq upload synthesize inform status result
+	docker-compose up $(async) mongo rabbitmq upload synthesize inform status result clean
 .PHONY: start
 ## invoke integration tests
 test/integration: start 

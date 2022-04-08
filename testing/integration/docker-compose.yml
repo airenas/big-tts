@@ -82,18 +82,16 @@ services:
      - MAIL_URL=${MAIL_URL} 
     restart: on-failure      
 
-  # big-tts-clean-test:
-  #   container_name: big-tts-clean-test
-  #   image: airenas/big-tts-clean:${BIG_TTS_CLEAN_VERSION}
-  #   environment:
-  #    - LOGGER_LEVEL=DEBUG
-  #    - MONGO_URL=${MONGO_URL}  
-  #    - GODEBUG=madvdontneed=1
-  #    - TIMER_RUNEVERY=1h
-  #    - TIMER_EXPIRE=168h
-  #   restart: unless-stopped
-  #   volumes:
-  #    - ${FILESTORAGE_PATH}:/data   
+  clean:
+    image: airenas/big-tts-clean:${clean_version}
+    environment:
+     - LOGGER_LEVEL=DEBUG
+     - MONGO_URL=${MONGO_URL}  
+     - TIMER_RUNEVERY=1h
+     - TIMER_EXPIRE=168h
+    restart: on-failure   
+    volumes:
+     - data:/data   
 
   integration-tests:
     build:

@@ -10,6 +10,6 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Build containers
-        run: make docker/upload/build docker/synthesize/build docker/inform/build docker/status/build 
+        run: make build/all
       - name: Run integration tests
         run: make test/integration

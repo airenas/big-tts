@@ -37,7 +37,7 @@ docker/%/build:
 #####################################################################################
 ## build all containers
 build/all: docker/status/build docker/inform/build docker/upload/build docker/synthesize/build \
-	docker/result/build
+	docker/result/build docker/clean/build
 .PHONY: build/all
 #####################################################################################
 ## push docker for provided service
@@ -51,12 +51,10 @@ docker/%/scan:
 .PHONY: docker/*/scan
 #####################################################################################
 ## cleans temporary data
-clean: clean/clean
+clean:
 	go mod tidy -compat=1.17
 	go clean
 .PHONY: clean
-clean/%:
-	cd build/$* && $(MAKE) clean
 #####################################################################################
 
 
