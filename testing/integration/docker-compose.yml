@@ -14,7 +14,7 @@ services:
     command: mongod --logpath=/dev/null # --quiet
 
   rabbitmq:
-    image: "rabbitmq:3.9.9-management"
+    image: "rabbitmq:3.9.14-alpine"
     hostname: "rabbitmq"
     environment:
       RABBITMQ_ERLANG_COOKIE: "0eaf0f4e-7078-44b0-970d-1c3d1277f9f2"
