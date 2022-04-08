@@ -35,6 +35,8 @@ services:
      - MESSAGESERVER_PASS=${RABBITMQ_PASS}
      - SYNTHESIS_DEFAULTVOICE=astra
     restart: on-failure
+    depends_on:
+      - rabbitmq
     volumes:
       - data:/data   
 

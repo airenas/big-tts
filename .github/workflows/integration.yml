@@ -12,4 +12,4 @@ jobs:
       - name: Build containers
         run: make build/all
       - name: Run integration tests
-        run: make test/integration
+        run: cd testing/integration && make test/integration/tmp

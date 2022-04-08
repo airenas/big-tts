@@ -18,6 +18,10 @@ start:
 test/integration: start 
 	docker-compose up --build --exit-code-from integration-tests integration-tests
 .PHONY: test/integration
+## invoke integration tests in verbose mode
+test/integration/tmp:  
+	docker-compose up --build --exit-code-from integration-tests 
+.PHONY: test/integration/tmp
 ## clean everything, stops docker containers and removes them
 clean:
 	docker-compose stop && docker-compose rm -f
