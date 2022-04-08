@@ -14,7 +14,7 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Build containers ${{ matrix.container }}
-        run: make build/${{ matrix.container }}/dbuild version=latest  
+        run: make docker/${{ matrix.container }}/build version=latest  
 
       - name: Run Snyk to check ${{ matrix.container }} Docker image for vulnerabilities
         continue-on-error: true

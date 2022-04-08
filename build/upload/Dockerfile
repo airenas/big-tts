@@ -25,7 +25,8 @@ ENV UID=999
 RUN addgroup app && adduser -S -G app app --uid $UID app
 
 WORKDIR /app
-RUN mkdir -p /app && chown -R app:app /app   
+RUN mkdir -p /app && chown -R app:app /app
+RUN mkdir -p /data && chown -R app:app /data   
 
 ARG BUILD_VERSION=0.1
 

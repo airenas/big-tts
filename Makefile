@@ -18,6 +18,10 @@ renew-async-api:
 test/unit: 
 	go test -v -race -count=1 ./...
 .PHONY: test/unit
+## run integration tests
+test/integration: 
+	cd testing/integration && ( $(MAKE) -j1 test/integration clean || ( $(MAKE) clean; exit 1; ))
+.PHONY: test/integration
 #####################################################################################
 ## code vet and lint
 test/lint: 
@@ -27,19 +31,19 @@ test/lint:
 .PHONY: test/lint
 #####################################################################################
 ## build docker for provided service
-build/%/dbuild: 
+docker/%/build: 
 	cd build/$* && $(MAKE) dbuild
-.PHONY: build/*/dbuild
+.PHONY: docker/*/build
 #####################################################################################
 ## push docker for provided service
-build/%/dpush: 
+docker/%/push: 
 	cd build/$* && $(MAKE) dpush
-.PHONY: build/*/dpush
+.PHONY: docker/*/push
 #####################################################################################
 ## scan docker for provided service
-build/%/dscan: 
+docker/%/scan: 
 	cd build/$* && $(MAKE) dscan
-.PHONY: build/*/dscan
+.PHONY: docker/*/scan
 #####################################################################################
 ## cleans temporary data
 clean: clean/clean clean/result clean/status
