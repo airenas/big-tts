@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/airenas/big-tts/internal/pkg/status"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/require"
 )
@@ -27,7 +28,7 @@ type config struct {
 	uploadURL  string
 	statusURL  string
 	resultURL  string
-	cleanURL  string
+	cleanURL   string
 	httpClient *http.Client
 }
 
@@ -127,35 +128,67 @@ func TestResultLive(t *testing.T) {
 	checkCode(t, invoke(t, newRequest(t, http.MethodGet, cfg.resultURL, "/live", nil)), http.StatusOK)
 }
 
+func TestResult_Fail(t *testing.T) {
+	t.Parallel()
+	checkCode(t, invoke(t, newRequest(t, http.MethodGet, cfg.resultURL, "/result/10", nil)), http.StatusBadRequest)
+}
+
 func TestCleanLive(t *testing.T) {
 	t.Parallel()
 	checkCode(t, invoke(t, newRequest(t, http.MethodGet, cfg.cleanURL, "/live", nil)), http.StatusOK)
 }
 
 func TestClean_OK(t *testing.T) {
-	t.Parallel() 
+	t.Parallel()
 	resp := invoke(t, newUploadRequest(t, "file", "t.txt", "olia olia", [][2]string{{"voice", "astra"}}))
 	checkCode(t, resp, http.StatusOK)
-	upResp := result{}
+	upResp := uploadResp{}
 	decode(t, resp, &upResp)
 	require.NotEmpty(t, upResp.ID)
-	checkCode(t, invoke(t, newRequest(t, http.MethodGet, cfg.statusURL, "/status/" + upResp.ID, nil)), http.StatusOK)
-	checkCode(t, invoke(t, newRequest(t, http.MethodGet, cfg.cleanURL, "/clean/" + upResp.ID, nil)), http.StatusOK)
-	checkCode(t, invoke(t, newRequest(t, http.MethodGet, cfg.statusURL, "/status/" + upResp.ID, nil)), http.StatusBadRequest)
+	checkCode(t, invoke(t, newRequest(t, http.MethodGet, cfg.statusURL, "/status/"+upResp.ID, nil)), http.StatusOK)
+	waitStatusDone(t, 3*time.Second, upResp.ID)
+	checkCode(t, invoke(t, newRequest(t, http.MethodDelete, cfg.cleanURL, "/delete/"+upResp.ID, nil)), http.StatusOK)
+	checkCode(t, invoke(t, newRequest(t, http.MethodGet, cfg.statusURL, "/status/"+upResp.ID, nil)), http.StatusBadRequest)
 }
 
-type result struct {
+func waitStatusDone(t *testing.T, timeout time.Duration, id string) {
+	t.Helper()
+	tm := time.After(timeout)
+	for {
+		select {
+		case <-tm:
+			require.Fail(t, "Timeout waiting for completed status")
+		default:
+			resp := invoke(t, newRequest(t, http.MethodGet, cfg.statusURL, "/status/"+id, nil))
+			checkCode(t, resp, http.StatusOK)
+			stResp := statusResp{}
+			decode(t, resp, &stResp)
+			if status.From(stResp.Status) == status.Completed || stResp.Error != "" {
+				return
+			}
+			time.Sleep(time.Millisecond * 100)
+		}
+	}
+}
+
+type uploadResp struct {
 	ID string `json:"id"`
 }
+
+type statusResp struct {
+	Status string `json:"status"`
+	Error  string `json:"error,omitempty"`
+}
+
 func TestStatus_OK(t *testing.T) {
 	t.Parallel()
 	req := newUploadRequest(t, "file", "t.txt", "olia olia", [][2]string{{"voice", "astra"}})
 	resp := invoke(t, req)
 	checkCode(t, resp, http.StatusOK)
-	upResp := result{}
+	upResp := uploadResp{}
 	decode(t, resp, &upResp)
 	require.NotEmpty(t, upResp.ID)
-	checkCode(t, invoke(t, newRequest(t, http.MethodGet, cfg.statusURL, "/status/" + upResp.ID, nil)), http.StatusOK)
+	checkCode(t, invoke(t, newRequest(t, http.MethodGet, cfg.statusURL, "/status/"+upResp.ID, nil)), http.StatusOK)
 }
 
 func newRequest(t *testing.T, method string, srv, urlSuffix string, body interface{}) *http.Request {
