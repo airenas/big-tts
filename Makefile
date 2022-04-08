@@ -46,7 +46,7 @@ docker/%/scan:
 .PHONY: docker/*/scan
 #####################################################################################
 ## cleans temporary data
-clean: clean/clean clean/result clean/status
+clean: clean/clean clean/result
 	go mod tidy -compat=1.17
 	go clean
 .PHONY: clean
