@@ -1,0 +1,116 @@
+version: '3.7'
+
+services:
+
+services:
+  mongo:
+    image: mongo:5.0.4
+    environment:
+      MONGO_DATA_DIR: "/data/db"
+      MONGO_LOG_DIR: "/dev/null"
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASS}
+    restart: on-failure     
+    command: mongod --logpath=/dev/null # --quiet
+
+  rabbitmq:
+    image: "rabbitmq:3.9.9-management"
+    hostname: "rabbitmq"
+    environment:
+      RABBITMQ_ERLANG_COOKIE: "0eaf0f4e-7078-44b0-970d-1c3d1277f9f2"
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
+      RABBITMQ_DEFAULT_VHOST: "/"
+    labels:
+      NAME: "big-tts-rabbitmq"
+    restart: on-failure     
+  
+  upload:
+    image: airenas/big-tts-upload:${upload_version}
+    environment:
+     - LOGGER_LEVEL=DEBUG
+     - MONGO_URL=${MONGO_URL}  
+     - MESSAGESERVER_URL=rabbitmq:5672
+     - MESSAGESERVER_USER=${RABBITMQ_USER}
+     - MESSAGESERVER_PASS=${RABBITMQ_PASS}
+     - SYNTHESIS_DEFAULTVOICE=astra
+    restart: on-failure
+    volumes:
+      - data:/data   
+
+  big-tts-result-test:
+    container_name: big-tts-result-test
+    image: airenas/big-tts-result:${BIG_TTS_RESULT_VERSION}
+    environment:
+     - MONGO_URL=${MONGO_URL}  
+     - GODEBUG=madvdontneed=1
+    restart: unless-stopped
+    volumes:
+     - ${FILESTORAGE_PATH}:/data   
+
+  big-tts-status-test:
+    container_name: big-tts-status-test
+    image: airenas/big-tts-status:${BIG_TTS_STATUS_VERSION}
+    environment:
+     - MONGO_URL=${MONGO_URL}  
+     - GODEBUG=madvdontneed=1
+    restart: unless-stopped
+
+  synthesize:
+    image: airenas/big-tts-synthesize:${synthesize_version}
+    environment:
+     - LOGGER_LEVEL=DEBUG
+     - MONGO_URL=${MONGO_URL}  
+     - MESSAGESERVER_URL=rabbitmq:5672
+     - MESSAGESERVER_USER=${RABBITMQ_USER}
+     - MESSAGESERVER_PASS=${RABBITMQ_PASS}
+     - SYNTHESIZER_URL=http://tts-line-beta:8000/synthesize
+     - SYNTHESIZER_WORKERS=3
+     - DOORMAN_URL=http://doorman-admin-test:8000
+    restart: on-failure 
+    volumes:
+     - data:/data   
+     
+  inform:
+    image: airenas/big-tts-inform:${inform_version}
+    environment:
+     - MONGO_URL=${MONGO_URL}  
+     - MESSAGESERVER_URL=rabbitmq:5672
+     - MESSAGESERVER_USER=${RABBITMQ_USER}
+     - MESSAGESERVER_PASS=${RABBITMQ_PASS}
+     - SMTP_USERNAME=${SMTP_USERNAME}
+     - SMTP_PASSWORD=${SMTP_PASSWORD}
+     - SMTP_HOST=${SMTP_HOST}
+     - SMTP_PORT=${SMTP_PORT}
+     - SMTP_TYPE=LOGIN
+     - MAIL_URL=${MAIL_URL} 
+    restart: on-failure      
+
+  # big-tts-clean-test:
+  #   container_name: big-tts-clean-test
+  #   image: airenas/big-tts-clean:${BIG_TTS_CLEAN_VERSION}
+  #   environment:
+  #    - LOGGER_LEVEL=DEBUG
+  #    - MONGO_URL=${MONGO_URL}  
+  #    - GODEBUG=madvdontneed=1
+  #    - TIMER_RUNEVERY=1h
+  #    - TIMER_EXPIRE=168h
+  #   restart: unless-stopped
+  #   volumes:
+  #    - ${FILESTORAGE_PATH}:/data   
+
+  integration-tests:
+    build:
+      context: .
+      dockerfile: ./Dockerfile.test
+    depends_on:
+      - upload
+    environment:
+      UPLOAD_URL: http://upload:8000  
+      DOORMAN_URL: http://doorman:8000  
+    volumes:
+      - ../../:/go/src/
+    command: -tags integration -v -count=1 ./testing/integration/...
+
+volumes:
+  data:
