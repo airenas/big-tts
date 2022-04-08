@@ -26,6 +26,8 @@ import (
 type config struct {
 	uploadURL  string
 	statusURL  string
+	resultURL  string
+	cleanURL  string
 	httpClient *http.Client
 }
 
@@ -34,6 +36,8 @@ var cfg config
 func TestMain(m *testing.M) {
 	cfg.uploadURL = getOrFail("UPLOAD_URL")
 	cfg.statusURL = getOrFail("STATUS_URL")
+	cfg.resultURL = getOrFail("RESULT_URL")
+	cfg.cleanURL = getOrFail("CLEAN_URL")
 
 	cfg.httpClient = &http.Client{Timeout: time.Second * 5}
 
@@ -41,6 +45,8 @@ func TestMain(m *testing.M) {
 	defer cf()
 	waitForOpenOrFail(tCtx, cfg.uploadURL)
 	waitForOpenOrFail(tCtx, cfg.statusURL)
+	waitForOpenOrFail(tCtx, cfg.resultURL)
+	waitForOpenOrFail(tCtx, cfg.cleanURL)
 
 	os.Exit(m.Run())
 }
@@ -114,6 +120,28 @@ func TestStatusLive(t *testing.T) {
 func TestStatus_Fail(t *testing.T) {
 	t.Parallel()
 	checkCode(t, invoke(t, newRequest(t, http.MethodGet, cfg.statusURL, "/status/olia", nil)), http.StatusBadRequest)
+}
+
+func TestResultLive(t *testing.T) {
+	t.Parallel()
+	checkCode(t, invoke(t, newRequest(t, http.MethodGet, cfg.resultURL, "/live", nil)), http.StatusOK)
+}
+
+func TestCleanLive(t *testing.T) {
+	t.Parallel()
+	checkCode(t, invoke(t, newRequest(t, http.MethodGet, cfg.cleanURL, "/live", nil)), http.StatusOK)
+}
+
+func TestClean_OK(t *testing.T) {
+	t.Parallel() 
+	resp := invoke(t, newUploadRequest(t, "file", "t.txt", "olia olia", [][2]string{{"voice", "astra"}}))
+	checkCode(t, resp, http.StatusOK)
+	upResp := result{}
+	decode(t, resp, &upResp)
+	require.NotEmpty(t, upResp.ID)
+	checkCode(t, invoke(t, newRequest(t, http.MethodGet, cfg.statusURL, "/status/" + upResp.ID, nil)), http.StatusOK)
+	checkCode(t, invoke(t, newRequest(t, http.MethodGet, cfg.cleanURL, "/clean/" + upResp.ID, nil)), http.StatusOK)
+	checkCode(t, invoke(t, newRequest(t, http.MethodGet, cfg.statusURL, "/status/" + upResp.ID, nil)), http.StatusBadRequest)
 }
 
 type result struct {

@@ -38,15 +38,13 @@ services:
     volumes:
       - data:/data   
 
-  big-tts-result-test:
-    container_name: big-tts-result-test
-    image: airenas/big-tts-result:${BIG_TTS_RESULT_VERSION}
+  result:
+    image: airenas/big-tts-result:${result_version}
     environment:
      - MONGO_URL=${MONGO_URL}  
-     - GODEBUG=madvdontneed=1
     restart: on-failure
     volumes:
-     - ${FILESTORAGE_PATH}:/data   
+     - data:/data   
 
   status:
     image: airenas/big-tts-status:${status_version}
@@ -106,6 +104,8 @@ services:
     environment:
       UPLOAD_URL: http://upload:8000  
       STATUS_URL: http://status:8000  
+      CLEAN_URL: http://clean:8000  
+      RESULT_URL: http://result:8000  
     volumes:
       - ../../:/go/src/
     command: -tags integration -v -count=1 ./testing/integration/...
