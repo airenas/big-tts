@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        container: [synthesize, upload, inform]
+        container: [synthesize, upload, inform, status]
     steps:
       - uses: actions/checkout@v2
 

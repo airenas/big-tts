@@ -25,23 +25,32 @@ import (
 
 type config struct {
 	uploadURL  string
+	statusURL  string
 	httpClient *http.Client
 }
 
 var cfg config
 
 func TestMain(m *testing.M) {
-	cfg.uploadURL = os.Getenv("UPLOAD_URL")
-	if cfg.uploadURL == "" {
-		log.Fatal("FAIL: no UPLOAD_URL set")
-	}
+	cfg.uploadURL = getOrFail("UPLOAD_URL")
+	cfg.statusURL = getOrFail("STATUS_URL")
+
 	cfg.httpClient = &http.Client{Timeout: time.Second * 5}
 
 	tCtx, cf := context.WithTimeout(context.Background(), time.Second*20)
 	defer cf()
 	waitForOpenOrFail(tCtx, cfg.uploadURL)
+	waitForOpenOrFail(tCtx, cfg.statusURL)
 
 	os.Exit(m.Run())
+}
+
+func getOrFail(s string) string {
+	res := os.Getenv(s)
+	if res == "" {
+		log.Fatalf("FAIL: no %s set", s)
+	}
+	return res
 }
 
 func waitForOpenOrFail(ctx context.Context, urlWait string) {
@@ -76,7 +85,7 @@ func listen(urlStr string) error {
 
 func TestUploadLive(t *testing.T) {
 	t.Parallel()
-	checkCode(t, invoke(t, newRequest(t, http.MethodGet, "/live", nil)), http.StatusOK)
+	checkCode(t, invoke(t, newRequest(t, http.MethodGet, cfg.uploadURL, "/live", nil)), http.StatusOK)
 }
 
 func TestUpload(t *testing.T) {
@@ -97,9 +106,33 @@ func TestUpload_FailFile(t *testing.T) {
 	checkCode(t, invoke(t, req), http.StatusBadRequest)
 }
 
-func newRequest(t *testing.T, method string, urlSuffix string, body interface{}) *http.Request {
+func TestStatusLive(t *testing.T) {
+	t.Parallel()
+	checkCode(t, invoke(t, newRequest(t, http.MethodGet, cfg.statusURL, "/live", nil)), http.StatusOK)
+}
+
+func TestStatus_Fail(t *testing.T) {
+	t.Parallel()
+	checkCode(t, invoke(t, newRequest(t, http.MethodGet, cfg.statusURL, "/status/olia", nil)), http.StatusBadRequest)
+}
+
+type result struct {
+	ID string `json:"id"`
+}
+func TestStatus_OK(t *testing.T) {
+	t.Parallel()
+	req := newUploadRequest(t, "file", "t.txt", "olia olia", [][2]string{{"voice", "astra"}})
+	resp := invoke(t, req)
+	checkCode(t, resp, http.StatusOK)
+	upResp := result{}
+	decode(t, resp, &upResp)
+	require.NotEmpty(t, upResp.ID)
+	checkCode(t, invoke(t, newRequest(t, http.MethodGet, cfg.statusURL, "/status/" + upResp.ID, nil)), http.StatusOK)
+}
+
+func newRequest(t *testing.T, method string, srv, urlSuffix string, body interface{}) *http.Request {
 	t.Helper()
-	req, err := http.NewRequest(method, cfg.uploadURL+urlSuffix, toReader(body))
+	req, err := http.NewRequest(method, srv+urlSuffix, toReader(body))
 	require.Nil(t, err, "not nil error = %v", err)
 	if body != nil {
 		req.Header.Add(echo.HeaderContentType, echo.MIMEApplicationJSON)

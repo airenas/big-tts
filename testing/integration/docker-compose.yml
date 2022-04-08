@@ -44,17 +44,15 @@ services:
     environment:
      - MONGO_URL=${MONGO_URL}  
      - GODEBUG=madvdontneed=1
-    restart: unless-stopped
+    restart: on-failure
     volumes:
      - ${FILESTORAGE_PATH}:/data   
 
-  big-tts-status-test:
-    container_name: big-tts-status-test
-    image: airenas/big-tts-status:${BIG_TTS_STATUS_VERSION}
+  status:
+    image: airenas/big-tts-status:${status_version}
     environment:
      - MONGO_URL=${MONGO_URL}  
-     - GODEBUG=madvdontneed=1
-    restart: unless-stopped
+    restart: on-failure
 
   synthesize:
     image: airenas/big-tts-synthesize:${synthesize_version}
@@ -107,7 +105,7 @@ services:
       - upload
     environment:
       UPLOAD_URL: http://upload:8000  
-      DOORMAN_URL: http://doorman:8000  
+      STATUS_URL: http://status:8000  
     volumes:
       - ../../:/go/src/
     command: -tags integration -v -count=1 ./testing/integration/...

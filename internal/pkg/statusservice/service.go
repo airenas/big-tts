@@ -87,7 +87,7 @@ type result struct {
 
 func status(data *Data) func(echo.Context) error {
 	return func(c echo.Context) error {
-		defer goapp.Estimate("download method")()
+		defer goapp.Estimate("status method")()
 
 		id := c.Param("id")
 		if id == "" {
