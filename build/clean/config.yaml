@@ -3,6 +3,8 @@ port: 8000
 # mongo:
 #   url:
 
+type: db
+
 fileStorage:
     path: /data
     patterns:

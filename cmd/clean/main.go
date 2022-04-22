@@ -5,6 +5,7 @@ import (
 	"time"
 
 	aclean "github.com/airenas/async-api/pkg/clean"
+	afile "github.com/airenas/async-api/pkg/file"
 	amongo "github.com/airenas/async-api/pkg/mongo"
 	"github.com/spf13/viper"
 
@@ -23,22 +24,38 @@ func main() {
 	var err error
 
 	cleaner := &aclean.CleanerGroup{}
+	tData := aclean.TimerData{}
+	tData.RunEvery = cfg.GetDuration("timer.runEvery")
 
-	mongoSessionProvider, err := amongo.NewSessionProvider(cfg.GetString("mongo.url"), mongo.GetIndexes(), "tts")
-	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't init mongo session provider"))
+	typ := cfg.GetString("type")
+	goapp.Log.Infof("Cleaner type '%s'", typ)
+	if typ == "db" {
+		mongoSessionProvider, err := amongo.NewSessionProvider(cfg.GetString("mongo.url"), mongo.GetIndexes(), "tts")
+		if err != nil {
+			goapp.Log.Fatal(errors.Wrap(err, "can't init mongo session provider"))
+		}
+		defer mongoSessionProvider.Close()
+		cls, err := getDbCleaners(mongoSessionProvider)
+		if err != nil {
+			goapp.Log.Fatal(errors.Wrap(err, "can't init mongo table cleaners"))
+		}
+		for _, cl := range cls {
+			cleaner.Jobs = append(cleaner.Jobs, cl)
+		}
+		tData.IDsProvider, err = amongo.NewCleanIDsProvider(mongoSessionProvider, cfg.GetDuration("timer.expire"), mongo.RequestTable)
+		if err != nil {
+			goapp.Log.Fatal(errors.Wrap(err, "can't init IDs provider"))
+		}
+	} else if typ == "dir" {
+		tData.IDsProvider, err = afile.NewOldDirProvider(cfg.GetDuration("timer.expire"), cfg.GetString("fileStorage.path"))
+		if err != nil {
+			goapp.Log.Fatal(errors.Wrap(err, "can't init IDs provider"))
+		}
+	} else {
+		goapp.Log.Fatalf("unknown or no cleaner type '%s'", typ)
 	}
-	defer mongoSessionProvider.Close()
 
-	cls, err := getDbCleaners(mongoSessionProvider)
-	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't init mongo table cleaners"))
-	}
-	for _, cl := range cls {
-		cleaner.Jobs = append(cleaner.Jobs, cl)
-	}
-
-	cls, err = getFileCleaners(cfg)
+	cls, err := getFileCleaners(cfg)
 	if err != nil {
 		goapp.Log.Fatal(errors.Wrap(err, "can't init file cleaners"))
 	}
@@ -50,13 +67,7 @@ func main() {
 
 	printBanner()
 
-	tData := aclean.TimerData{}
-	tData.RunEvery = cfg.GetDuration("timer.runEvery")
 	tData.Cleaner = cleaner
-	tData.IDsProvider, err = amongo.NewCleanIDsProvider(mongoSessionProvider, cfg.GetDuration("timer.expire"), mongo.RequestTable)
-	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't init ides provider"))
-	}
 	goapp.Log.Infof("Expire duration %s", cfg.GetDuration("timer.expire"))
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
