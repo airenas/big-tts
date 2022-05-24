@@ -2,10 +2,14 @@ package splitter
 
 import (
 	"context"
+	"fmt"
+	"reflect"
 	"testing"
+	"time"
 
 	amessages "github.com/airenas/async-api/pkg/messages"
 	"github.com/airenas/big-tts/internal/pkg/messages"
+	"github.com/airenas/tts-line/pkg/ssml"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
@@ -128,4 +132,95 @@ func TestWorker_Do_FailSave(t *testing.T) {
 	}
 	err = got.Do(context.Background(), &messages.TTSMessage{QueueMessage: amessages.QueueMessage{ID: "id1"}})
 	assert.NotNil(t, err)
+}
+
+func Test_toRateStr(t *testing.T) {
+	tests := []struct {
+		args float32
+		want string
+	}{
+		{args: 2, want: "50%"},
+		{args: 1.5, want: "75%"},
+		{args: 3, want: "50%"},
+		{args: 1, want: "100%"},
+		{args: 0.9, want: "120%"},
+		{args: 0.5, want: "200%"},
+		{args: 0.75, want: "150%"},
+		{args: -1.75, want: "200%"},
+	}
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%.2f", tt.args), func(t *testing.T) {
+			if got := toRateStr(tt.args); got != tt.want {
+				t.Errorf("toRateStr() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_saveToSSMLString(t *testing.T) {
+	tests := []struct {
+		name string
+		args []ssml.Part
+		want string
+	}{
+		{name: "Empty", args: nil, want: "<speak></speak>"},
+		{name: "Text", args: []ssml.Part{&ssml.Text{Text: "olia", Speed: 1, Voice: "as"}},
+			want: `<speak><voice name="as"><prosody rate="100%">olia</prosody></voice></speak>`},
+		{name: "Break", args: []ssml.Part{&ssml.Pause{Duration: 4 * time.Second}},
+			want: `<speak><break time="4000ms"/></speak>`},
+		{name: "Several", args: []ssml.Part{&ssml.Text{Text: "olia", Speed: 1.5, Voice: "as"},
+			&ssml.Pause{Duration: 2 * time.Second},
+			&ssml.Text{Text: "olia", Speed: .75, Voice: "as2"}},
+			want: `<speak><voice name="as"><prosody rate="75%">olia</prosody></voice>` +
+				`<break time="2000ms"/>` +
+				`<voice name="as2"><prosody rate="150%">olia</prosody></voice></speak>`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := saveToSSMLString(tt.args); got != tt.want {
+				t.Errorf("saveToSSMLString() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestWorker_doSSML(t *testing.T) {
+	tests := []struct {
+		name    string
+		wChars  int
+		args    string
+		want    []string
+		wantErr bool
+	}{
+		{name: "no text", wChars: 20, args: "", want: nil, wantErr: true},
+		{name: "no split", wChars: 20, args: "<speak>olia</speak>",
+			want:    []string{`<speak><voice name="vd"><prosody rate="75%">olia</prosody></voice></speak>`},
+			wantErr: false},
+		{name: "splits", wChars: 20, args: "<speak>0123456789 0123456789 0123456789</speak>",
+			want: []string{`<speak><voice name="vd"><prosody rate="75%">0123456789 0123456789</prosody></voice></speak>`,
+				`<speak><voice name="vd"><prosody rate="75%"> 0123456789</prosody></voice></speak>`},
+			wantErr: false},
+		{name: "add break", wChars: 20, args: "<speak>0123456789 0123456789 0123456789<p/></speak>",
+			want: []string{`<speak><voice name="vd"><prosody rate="75%">0123456789 0123456789</prosody></voice></speak>`,
+				`<speak><voice name="vd"><prosody rate="75%"> 0123456789</prosody></voice><break time="1250ms"/></speak>`},
+			wantErr: false},
+		{name: "add several to one shot", wChars: 100, args: `<speak>0123456789 0123456789<p/> 
+		<voice name="oovd"><prosody rate="x-slow">0123456789</prosody></voice></speak>`,
+			want: []string{`<speak><voice name="vd"><prosody rate="75%">0123456789 0123456789</prosody></voice>` +
+				`<break time="1250ms"/><voice name="oovd"><prosody rate="50%">0123456789</prosody></voice></speak>`},
+			wantErr: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := &Worker{wantedChars: tt.wChars}
+			got, err := w.doSSML(tt.args, "vd", 1.5)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Worker.doSSML() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Worker.doSSML() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
