@@ -1,7 +1,7 @@
 commit_count?=$(shell git rev-list --count HEAD)
 
 upload_version?=0.2.$(commit_count)
-synthesize_version?=0.2.$(commit_count)
+synthesize_version?=0.3.$(commit_count)
 inform_version?=0.2.$(commit_count)
 status_version?=0.2.$(commit_count)
 result_version?=0.2.$(commit_count)
