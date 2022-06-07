@@ -89,22 +89,28 @@ func (w *Worker) doSSML(text string, voice string, speed float64) ([]string, err
 	var res []string
 	var cParts []ssml.Part
 	cLen := 0
+	maxChars := w.wantedChars/4 + w.wantedChars
 	for _, part := range parts {
 		switch sp := part.(type) {
 		case *ssml.Text:
-			txts, err := w.splitText(sp.Text)
+			var cPart *ssml.Text
+			txts, err := w.splitTextParts(sp.Texts)
 			if err != nil {
 				return nil, errors.Wrapf(err, "can't split")
 			}
 			for _, txt := range txts {
-				pLen := utf8.RuneCountInString(txt)
-				if cLen+pLen > w.wantedChars {
+				pLen := utf8.RuneCountInString(getPartText(txt))
+				if cLen+pLen > maxChars {
 					if len(cParts) > 0 {
 						res = append(res, saveToSSMLString(cParts))
 					}
-					cParts, cLen = nil, 0
+					cParts, cPart, cLen = nil, nil, 0
 				}
-				cParts, cLen = append(cParts, &ssml.Text{Text: txt, Voice: sp.Voice, Speed: sp.Speed}), cLen+pLen
+				if cPart == nil {
+					cPart = &ssml.Text{Texts: []ssml.TextPart{}, Voice: sp.Voice, Speed: sp.Speed}
+					cParts = append(cParts, cPart)
+				}
+				cPart.Texts, cLen = append(cPart.Texts, *txt), cLen+pLen
 			}
 		case *ssml.Pause:
 			cParts = append(cParts, sp)
@@ -118,6 +124,13 @@ func (w *Worker) doSSML(text string, voice string, speed float64) ([]string, err
 	return res, nil
 }
 
+func getPartText(txt *ssml.TextPart) string {
+	if txt.Accented != "" {
+		return txt.Accented
+	}
+	return txt.Text
+}
+
 func saveToSSMLString(cParts []ssml.Part) string {
 	res := strings.Builder{}
 	res.WriteString("<speak>")
@@ -125,7 +138,17 @@ func saveToSSMLString(cParts []ssml.Part) string {
 		switch sp := part.(type) {
 		case *ssml.Text:
 			res.WriteString(fmt.Sprintf(`<voice name="%s"><prosody rate="%s">`, sp.Voice, toRateStr(sp.Speed)))
-			_ = xml.EscapeText(&res, []byte(sp.Text))
+			for _, tp := range sp.Texts {
+				if tp.Accented != "" {
+					res.WriteString(`<intelektika:w acc="`)
+					_ = xml.EscapeText(&res, []byte(tp.Accented))
+					res.WriteString(`">`)
+					_ = xml.EscapeText(&res, []byte(tp.Text))
+					res.WriteString(`</intelektika:w>`)
+				} else {
+					_ = xml.EscapeText(&res, []byte(tp.Text))
+				}
+			}
 			res.WriteString(`</prosody></voice>`)
 		case *ssml.Pause:
 			res.WriteString(fmt.Sprintf(`<break time="%dms"/>`, sp.Duration.Milliseconds()))
@@ -161,6 +184,36 @@ func (w *Worker) splitText(text string) ([]string, error) {
 			return nil, err
 		}
 		res = append(res, string(rns[:pos]))
+		rns = rns[pos:]
+	}
+	return res, nil
+}
+
+type partRemaining struct {
+	texts        []ssml.TextPart
+	pPart, pText int
+}
+
+func (w *Worker) splitTextParts(texts []ssml.TextPart) ([]*ssml.TextPart, error) {
+	var res []*ssml.TextPart
+	tb := strings.Builder{}
+	for _, tp := range texts {
+		if (tb.Len() > 0) {
+			tb.WriteString(" ")
+		}
+		tb.WriteString(getPartText(&tp))
+	}
+
+	pl := &partRemaining{texts: texts}
+
+	rns := []rune(tb.String())
+	for len(rns) > 0 {
+		pos, err := getNextSplit(rns, w.wantedChars, w.wantedChars/4)
+		if err != nil {
+			return nil, err
+		}
+
+		res = append(res, pl.getPartsTo(pos)...)
 		rns = rns[pos:]
 	}
 	return res, nil
@@ -233,4 +286,30 @@ func (w *Worker) save(ID string, texts []string) error {
 		}
 	}
 	return nil
+}
+
+func (pl *partRemaining) getPartsTo(pos int) []*ssml.TextPart {
+	var res []*ssml.TextPart
+	from := 0
+	for from < pos {
+		p := pl.texts[pl.pPart]
+		text := getPartText(&p)
+		cLen := utf8.RuneCountInString(text)
+		if cLen-pl.pText <= pos-from {
+			if pl.pText == 0 {
+				res = append(res, &p) // add whole part
+			} else {
+				res = append(res, &ssml.TextPart{Text: p.Text[pl.pText:]})
+			}
+			from += cLen - pl.pText + 1 // +1 for end space
+			pl.pText = 0
+			pl.pPart++
+		} else {
+			to := pos - from + pl.pText
+			res = append(res, &ssml.TextPart{Text: p.Text[pl.pText:to]})
+			from += to - pl.pText
+			pl.pText += to - pl.pText
+		}
+	}
+	return res
 }

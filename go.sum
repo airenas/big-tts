@@ -37,8 +37,8 @@ github.com/airenas/async-api v0.3.51 h1:iZV1qrn1zuXUJnJ6w2ccmOSPrfTsmw1pn60ErxMB
 github.com/airenas/async-api v0.3.51/go.mod h1:J4TgPMz5gFJJ9HFyYyhQmA8ynhmr0nCX1NsHjjnoOUQ=
 github.com/airenas/go-app v0.4.21 h1:ADkWd4E5bUQP4BZPV5TlM3MJyZXpGbbrH509IYiGFZM=
 github.com/airenas/go-app v0.4.21/go.mod h1:MAFPki/45z+EQlzpvRi62PUKhVbTtK7P+I2NK+ZFmos=
-github.com/airenas/tts-line v0.2.387 h1:noA81QXbNTIit3i/LxEQ8e9QUM+u/ZiGrU52gptz2ik=
-github.com/airenas/tts-line v0.2.387/go.mod h1:pYEhDibX18+qudi2PysGyPtHh5D49cie0ocP1yeBmOk=
+github.com/airenas/tts-line v0.3.408 h1:U8kda1GcDKplU0P+R3Hwm/ITjwdi6K6ug3EL5vn8icc=
+github.com/airenas/tts-line v0.3.408/go.mod h1:pYEhDibX18+qudi2PysGyPtHh5D49cie0ocP1yeBmOk=
 github.com/alecthomas/template v0.0.0-20160405071501-a0175ee3bccc/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=
 github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=
 github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf/go.mod h1:ybxpYRFXyAe+OPACYpWeL0wqObRcbAqCMya13uyzqw0=
