@@ -199,7 +199,7 @@ func TestWorker_doSSML(t *testing.T) {
 		{name: "splits many words", wChars: 20, args: `<speak><intelektika:w acc="dfasdf{a/}">asdfg</intelektika:w><intelektika:w acc="dfasdf{a/}">asdfg</intelektika:w>` +
 			`<intelektika:w acc="dfasdf{a/}">asdfg</intelektika:w><intelektika:w acc="dfasdf{a/}">asdfg</intelektika:w></speak>`,
 			want: []string{`<speak><voice name="vd"><prosody rate="75%"><intelektika:w acc="dfasdf{a/}">asdfg</intelektika:w>` +
-				`+<intelektika:w acc="dfasdf{a/}">asdfg</intelektika:w></prosody></voice></speak>`,
+				`<intelektika:w acc="dfasdf{a/}">asdfg</intelektika:w></prosody></voice></speak>`,
 				`<speak><voice name="vd"><prosody rate="75%"><intelektika:w acc="dfasdf{a/}">asdfg</intelektika:w>` +
 					`<intelektika:w acc="dfasdf{a/}">asdfg</intelektika:w></prosody></voice></speak>`},
 			wantErr: false},
