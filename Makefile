@@ -8,7 +8,7 @@ help:
 .PHONY: help
 #####################################################################################
 generate:
-	go install github.com/petergtz/pegomock/...@latest
+	go install github.com/petergtz/pegomock/v4/pegomock@latest
 	go generate ./...
 
 renew-async-api:

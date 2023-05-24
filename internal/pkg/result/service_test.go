@@ -9,7 +9,7 @@ import (
 
 	"github.com/airenas/big-tts/internal/pkg/test/mocks"
 	"github.com/labstack/echo/v4"
-	"github.com/petergtz/pegomock"
+	"github.com/petergtz/pegomock/v4"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )

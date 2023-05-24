@@ -10,10 +10,11 @@ import (
 	"strings"
 	"testing"
 
+	amessages "github.com/airenas/async-api/pkg/messages"
+	"github.com/airenas/big-tts/internal/pkg/persistence"
 	"github.com/airenas/big-tts/internal/pkg/test/mocks"
-	"github.com/airenas/big-tts/internal/pkg/test/mocks/matchers"
 	"github.com/labstack/echo/v4"
-	"github.com/petergtz/pegomock"
+	"github.com/petergtz/pegomock/v4"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
@@ -98,7 +99,7 @@ func Test_400(t *testing.T) {
 func Test_Fails_Saver(t *testing.T) {
 	initTest(t)
 	req := newTestRequest("file", "file.txt", "olia", nil)
-	pegomock.When(saverMock.Save(pegomock.AnyString(), matchers.AnyIoReader())).ThenReturn(errors.New("err"))
+	pegomock.When(saverMock.Save(pegomock.AnyString(), pegomock.Any[io.Reader]())).ThenReturn(errors.New("err"))
 
 	testCode(t, req, http.StatusInternalServerError)
 }
@@ -106,7 +107,7 @@ func Test_Fails_Saver(t *testing.T) {
 func Test_Fails_ReqSaver(t *testing.T) {
 	initTest(t)
 	req := newTestRequest("file", "file.txt", "olia", nil)
-	pegomock.When(rSaverMock.Save(matchers.AnyPtrToPersistenceReqData())).ThenReturn(errors.New("err"))
+	pegomock.When(rSaverMock.Save(pegomock.Any[*persistence.ReqData]())).ThenReturn(errors.New("err"))
 
 	testCode(t, req, http.StatusInternalServerError)
 }
@@ -114,7 +115,7 @@ func Test_Fails_ReqSaver(t *testing.T) {
 func Test_Fails_MsgSender(t *testing.T) {
 	initTest(t)
 	req := newTestRequest("file", "file.txt", "olia", nil)
-	pegomock.When(senderMock.Send(matchers.AnyMessagesMessage(), pegomock.AnyString(), pegomock.AnyString())).ThenReturn(errors.New("err"))
+	pegomock.When(senderMock.Send(pegomock.Any[amessages.Message](), pegomock.AnyString(), pegomock.AnyString())).ThenReturn(errors.New("err"))
 
 	testCode(t, req, http.StatusInternalServerError)
 }

@@ -9,9 +9,8 @@ import (
 	amessages "github.com/airenas/async-api/pkg/messages"
 	"github.com/airenas/big-tts/internal/pkg/messages"
 	"github.com/airenas/big-tts/internal/pkg/test/mocks"
-	"github.com/airenas/big-tts/internal/pkg/test/mocks/matchers"
 	"github.com/airenas/big-tts/internal/pkg/utils"
-	"github.com/petergtz/pegomock"
+	"github.com/petergtz/pegomock/v4"
 	"github.com/pkg/errors"
 	"github.com/streadway/amqp"
 	"github.com/stretchr/testify/assert"
@@ -102,8 +101,8 @@ func Test_UploadMsg(t *testing.T) {
 	waitT(t, ch)
 
 	tStatusMock.VerifyWasCalledOnce().Save(pegomock.AnyString(), pegomock.AnyString(), pegomock.AnyString())
-	tMsgSender.VerifyWasCalledOnce().Send(matchers.AnyMessagesMessage(), pegomock.AnyString(), pegomock.AnyString())
-	tInfSender.VerifyWasCalledOnce().Send(matchers.AnyMessagesMessage(), pegomock.AnyString(), pegomock.AnyString())
+	tMsgSender.VerifyWasCalledOnce().Send(pegomock.Any[amessages.Message](), pegomock.AnyString(), pegomock.AnyString())
+	tInfSender.VerifyWasCalledOnce().Send(pegomock.Any[amessages.Message](), pegomock.AnyString(), pegomock.AnyString())
 }
 
 func Test_UploadMsg_FailSave(t *testing.T) {
@@ -119,8 +118,8 @@ func Test_UploadMsg_FailSave(t *testing.T) {
 	waitT(t, ch)
 
 	tStatusMock.VerifyWasCalledOnce().Save(pegomock.AnyString(), pegomock.AnyString(), pegomock.AnyString())
-	tMsgSender.VerifyWasCalled(pegomock.Never()).Send(matchers.AnyMessagesMessage(), pegomock.AnyString(), pegomock.AnyString())
-	tInfSender.VerifyWasCalled(pegomock.Never()).Send(matchers.AnyMessagesMessage(), pegomock.AnyString(), pegomock.AnyString())
+	tMsgSender.VerifyWasCalled(pegomock.Never()).Send(pegomock.Any[amessages.Message](), pegomock.AnyString(), pegomock.AnyString())
+	tInfSender.VerifyWasCalled(pegomock.Never()).Send(pegomock.Any[amessages.Message](), pegomock.AnyString(), pegomock.AnyString())
 }
 
 func Test_UploadMsg_FailSave_Redelivered(t *testing.T) {
@@ -136,12 +135,12 @@ func Test_UploadMsg_FailSave_Redelivered(t *testing.T) {
 	waitT(t, ch)
 
 	tStatusMock.VerifyWasCalled(pegomock.Twice()).Save(pegomock.AnyString(), pegomock.AnyString(), pegomock.AnyString())
-	fMsg, fQueue, _ := tMsgSender.VerifyWasCalled(pegomock.Once()).Send(matchers.AnyMessagesMessage(), pegomock.AnyString(), pegomock.AnyString()).
+	fMsg, fQueue, _ := tMsgSender.VerifyWasCalled(pegomock.Once()).Send(pegomock.Any[amessages.Message](), pegomock.AnyString(), pegomock.AnyString()).
 		GetCapturedArguments()
 	assert.Equal(t, messages.Fail, fQueue)
 	assert.Equal(t, "err", fMsg.(*messages.TTSMessage).Error)
 	assert.Equal(t, "rID", fMsg.(*messages.TTSMessage).RequestID)
-	_, eQueue, _ := tInfSender.VerifyWasCalled(pegomock.Once()).Send(matchers.AnyMessagesMessage(), pegomock.AnyString(), pegomock.AnyString()).
+	_, eQueue, _ := tInfSender.VerifyWasCalled(pegomock.Once()).Send(pegomock.Any[amessages.Message](), pegomock.AnyString(), pegomock.AnyString()).
 		GetCapturedArguments()
 	assert.Equal(t, messages.Inform, eQueue)
 }
@@ -158,7 +157,7 @@ func Test_UploadMsg_SendRestore(t *testing.T) {
 	close(tUploadCh)
 	waitT(t, ch)
 
-	fMsg, fQueue, _ := tMsgSender.VerifyWasCalled(pegomock.Once()).Send(matchers.AnyMessagesMessage(), pegomock.AnyString(), pegomock.AnyString()).
+	fMsg, fQueue, _ := tMsgSender.VerifyWasCalled(pegomock.Once()).Send(pegomock.Any[amessages.Message](), pegomock.AnyString(), pegomock.AnyString()).
 		GetCapturedArguments()
 	assert.Equal(t, messages.Fail, fQueue)
 	assert.Equal(t, "err", fMsg.(*messages.TTSMessage).Error)
@@ -178,7 +177,7 @@ func Test_UploadMsg_Restore_Skip(t *testing.T) {
 	close(tUploadCh)
 	waitT(t, ch)
 
-	tMsgSender.VerifyWasCalled(pegomock.Never()).Send(matchers.AnyMessagesMessage(), pegomock.AnyString(), pegomock.AnyString())
+	tMsgSender.VerifyWasCalled(pegomock.Never()).Send(pegomock.Any[amessages.Message](), pegomock.AnyString(), pegomock.AnyString())
 }
 
 func Test_UploadMsg_Restore_SkipRoutingKey(t *testing.T) {
@@ -194,7 +193,7 @@ func Test_UploadMsg_Restore_SkipRoutingKey(t *testing.T) {
 	close(tUploadCh)
 	waitT(t, ch)
 
-	tMsgSender.VerifyWasCalled(pegomock.Never()).Send(matchers.AnyMessagesMessage(), pegomock.AnyString(), pegomock.AnyString())
+	tMsgSender.VerifyWasCalled(pegomock.Never()).Send(pegomock.Any[amessages.Message](), pegomock.AnyString(), pegomock.AnyString())
 }
 
 func Test_SplitMsg(t *testing.T) {
@@ -210,8 +209,8 @@ func Test_SplitMsg(t *testing.T) {
 	waitT(t, ch)
 
 	tStatusMock.VerifyWasCalledOnce().Save(pegomock.AnyString(), pegomock.AnyString(), pegomock.AnyString())
-	tMsgSender.VerifyWasCalledOnce().Send(matchers.AnyMessagesMessage(), pegomock.AnyString(), pegomock.AnyString())
-	tSplitWrk.VerifyWasCalledOnce().Do(matchers.AnyContextContext(), matchers.AnyPtrToMessagesTTSMessage())
+	tMsgSender.VerifyWasCalledOnce().Send(pegomock.Any[amessages.Message](), pegomock.AnyString(), pegomock.AnyString())
+	tSplitWrk.VerifyWasCalledOnce().Do(pegomock.Any[context.Context](), pegomock.Any[*messages.TTSMessage]())
 }
 
 func Test_SplitMsg_Fail(t *testing.T) {
@@ -219,7 +218,7 @@ func Test_SplitMsg_Fail(t *testing.T) {
 	ch, err := StartWorkerService(tCtx, tData)
 	require.Nil(t, err)
 
-	pegomock.When(tSplitWrk.Do(matchers.AnyContextContext(), matchers.AnyPtrToMessagesTTSMessage())).ThenReturn(errors.New("err"))
+	pegomock.When(tSplitWrk.Do(pegomock.Any[context.Context](), pegomock.Any[*messages.TTSMessage]())).ThenReturn(errors.New("err"))
 
 	msg := messages.TTSMessage{QueueMessage: amessages.QueueMessage{ID: "olia"}, Voice: "aa"}
 	msgdata, _ := json.Marshal(msg)
@@ -228,7 +227,7 @@ func Test_SplitMsg_Fail(t *testing.T) {
 	waitT(t, ch)
 
 	tStatusMock.VerifyWasCalledOnce().Save(pegomock.AnyString(), pegomock.AnyString(), pegomock.AnyString())
-	tMsgSender.VerifyWasCalled(pegomock.Never()).Send(matchers.AnyMessagesMessage(), pegomock.AnyString(), pegomock.AnyString())
+	tMsgSender.VerifyWasCalled(pegomock.Never()).Send(pegomock.Any[amessages.Message](), pegomock.AnyString(), pegomock.AnyString())
 }
 
 func Test_SynthesizeMsg(t *testing.T) {
@@ -244,8 +243,8 @@ func Test_SynthesizeMsg(t *testing.T) {
 	waitT(t, ch)
 
 	tStatusMock.VerifyWasCalledOnce().Save(pegomock.AnyString(), pegomock.AnyString(), pegomock.AnyString())
-	tMsgSender.VerifyWasCalledOnce().Send(matchers.AnyMessagesMessage(), pegomock.AnyString(), pegomock.AnyString())
-	tSynthesizeWrk.VerifyWasCalledOnce().Do(matchers.AnyContextContext(), matchers.AnyPtrToMessagesTTSMessage())
+	tMsgSender.VerifyWasCalledOnce().Send(pegomock.Any[amessages.Message](), pegomock.AnyString(), pegomock.AnyString())
+	tSynthesizeWrk.VerifyWasCalledOnce().Do(pegomock.Any[context.Context](), pegomock.Any[*messages.TTSMessage]())
 }
 
 func Test_JoinMsg(t *testing.T) {
@@ -261,8 +260,8 @@ func Test_JoinMsg(t *testing.T) {
 	waitT(t, ch)
 
 	tStatusMock.VerifyWasCalled(pegomock.Twice()).Save(pegomock.AnyString(), pegomock.AnyString(), pegomock.AnyString())
-	tInfSender.VerifyWasCalledOnce().Send(matchers.AnyMessagesMessage(), pegomock.AnyString(), pegomock.AnyString())
-	tJoinWrk.VerifyWasCalledOnce().Do(matchers.AnyContextContext(), matchers.AnyPtrToMessagesTTSMessage())
+	tInfSender.VerifyWasCalledOnce().Send(pegomock.Any[amessages.Message](), pegomock.AnyString(), pegomock.AnyString())
+	tJoinWrk.VerifyWasCalledOnce().Do(pegomock.Any[context.Context](), pegomock.Any[*messages.TTSMessage]())
 }
 
 func Test_RestoreMsg(t *testing.T) {
@@ -277,7 +276,7 @@ func Test_RestoreMsg(t *testing.T) {
 	close(tRestoreCh)
 	waitT(t, ch)
 
-	tRestoreWrk.VerifyWasCalledOnce().Do(matchers.AnyContextContext(), matchers.AnyPtrToMessagesTTSMessage())
+	tRestoreWrk.VerifyWasCalledOnce().Do(pegomock.Any[context.Context](), pegomock.Any[*messages.TTSMessage]())
 }
 
 func Test_validate(t *testing.T) {
