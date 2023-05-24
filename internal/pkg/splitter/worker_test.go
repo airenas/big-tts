@@ -178,6 +178,10 @@ func Test_saveToSSMLString(t *testing.T) {
 			want: `<speak><voice name="as"><prosody rate="100%"><intelektika:w acc="oli{a/}">olia</intelektika:w></prosody></voice></speak>`},
 		{name: "Several words", args: []ssml.Part{&ssml.Text{Texts: []ssml.TextPart{{Text: "before"}, {Text: "olia", Accented: "oli{a/}"}, {Text: "long end"}}, Speed: 1, Voice: "as"}},
 			want: `<speak><voice name="as"><prosody rate="100%">before<intelektika:w acc="oli{a/}">olia</intelektika:w>long end</prosody></voice></speak>`},
+		{name: "Word sylls", args: []ssml.Part{&ssml.Text{Texts: []ssml.TextPart{{Text: "olia", Accented: "oli{a/}", Syllables: "o-li-a"}}, Speed: 1, Voice: "as"}},
+			want: `<speak><voice name="as"><prosody rate="100%"><intelektika:w acc="oli{a/}" syll="o-li-a">olia</intelektika:w></prosody></voice></speak>`},
+		{name: "Word OE model", args: []ssml.Part{&ssml.Text{Texts: []ssml.TextPart{{Text: "olia", Accented: "oli{a/}", Syllables: "o-li-a", UserOEPal: "O'lia"}}, Speed: 1, Voice: "as"}},
+			want: `<speak><voice name="as"><prosody rate="100%"><intelektika:w acc="oli{a/}" syll="o-li-a" user="O&#39;lia">olia</intelektika:w></prosody></voice></speak>`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -225,11 +229,18 @@ func TestWorker_doSSML(t *testing.T) {
 				`<break time="1250ms"/><voice name="oovd"><prosody rate="50%">0123456789</prosody></voice></speak>`},
 			wantErr: false},
 		{name: "words", wChars: 100, args: `<speak><intelektika:w acc="oli{a/}">olia</intelektika:w> 
-			<voice name="oovd"><prosody rate="x-slow"><intelektika:w acc="oli{a/}a">olia2</intelektika:w></prosody></voice></speak>`,
+		<voice name="oovd"><prosody rate="x-slow"><intelektika:w acc="oli{a/}a">olia2</intelektika:w></prosody></voice></speak>`,
 			want: []string{`<speak><voice name="vd"><prosody rate="75%"><intelektika:w acc="oli{a/}">olia</intelektika:w></prosody></voice>` +
 				`<voice name="oovd"><prosody rate="50%"><intelektika:w acc="oli{a/}a">olia2</intelektika:w></prosody></voice></speak>`},
 			wantErr: false},
+		{name: "fails word parse", wChars: 1000, args: `<speak><intelektika:w acc="oli{a/}" syll="oo-lia">olia</intelektika:w></speak>`,
+			want:    nil,
+			wantErr: true},
+		{name: "parse sylls OEmodel", wChars: 1000, args: `<speak><intelektika:w acc="oli{a/}" syll="o-l-ia" user="O'li*a">olia</intelektika:w></speak>`,
+			want:    []string{`<speak><voice name="vd"><prosody rate="75%"><intelektika:w acc="oli{a/}" syll="o-l-ia" user="O&#39;li*a">olia</intelektika:w></prosody></voice></speak>`},
+			wantErr: false},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			w := &Worker{wantedChars: tt.wChars}

@@ -141,7 +141,18 @@ func saveToSSMLString(cParts []ssml.Part) string {
 				if tp.Accented != "" {
 					res.WriteString(`<intelektika:w acc="`)
 					_ = xml.EscapeText(&res, []byte(tp.Accented))
-					res.WriteString(`">`)
+					res.WriteString(`"`)
+					if tp.Syllables != "" {
+						res.WriteString(` syll="`)
+						_ = xml.EscapeText(&res, []byte(tp.Syllables))
+						res.WriteString(`"`)
+					}
+					if tp.UserOEPal != "" {
+						res.WriteString(` user="`)
+						_ = xml.EscapeText(&res, []byte(tp.UserOEPal))
+						res.WriteString(`"`)
+					}
+					res.WriteString(`>`)
 					_ = xml.EscapeText(&res, []byte(tp.Text))
 					res.WriteString(`</intelektika:w>`)
 				} else {
