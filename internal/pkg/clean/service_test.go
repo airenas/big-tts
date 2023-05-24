@@ -1,7 +1,7 @@
 package clean
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -68,7 +68,7 @@ func Test_Delete(t *testing.T) {
 	pegomock.When(cleanMock.Clean(pegomock.AnyString())).ThenReturn(nil)
 	req := httptest.NewRequest(http.MethodDelete, "/delete/1", nil)
 	resp := testCode(t, req, 200)
-	bytes, _ := ioutil.ReadAll(resp.Body)
+	bytes, _ := io.ReadAll(resp.Body)
 	assert.Equal(t, "deleted", string(bytes))
 }
 

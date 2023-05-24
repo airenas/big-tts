@@ -211,7 +211,7 @@ func TestWorker_Do_WithRealInvoke(t *testing.T) {
 		rw.WriteHeader(http.StatusOK)
 		res := result{}
 		res.AudioAsString = base64.StdEncoding.EncodeToString([]byte("audio data"))
-		json.NewEncoder(rw).Encode(res)
+		_ = json.NewEncoder(rw).Encode(res)
 	}))
 	defer srv.Close()
 

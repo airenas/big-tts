@@ -1,7 +1,7 @@
 package statusservice
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -52,7 +52,7 @@ func Test_Returns(t *testing.T) {
 	pegomock.When(providerMock.Get(pegomock.AnyString())).ThenReturn(&persistence.Status{ID: "10", Status: "olia"}, nil)
 	req := httptest.NewRequest(http.MethodGet, "/status/10", nil)
 	resp := testCode(t, req, 200)
-	bytes, _ := ioutil.ReadAll(resp.Body)
+	bytes, _ := io.ReadAll(resp.Body)
 	assert.Contains(t, string(bytes), `"status":"olia"`)
 	mID := providerMock.VerifyWasCalled(pegomock.Once()).Get(pegomock.AnyString()).GetCapturedArguments()
 	assert.Equal(t, "10", mID)
@@ -63,7 +63,7 @@ func Test_Returns_Error(t *testing.T) {
 	pegomock.When(providerMock.Get(pegomock.AnyString())).ThenReturn(&persistence.Status{ID: "10", Status: "olia", Error: "err"}, nil)
 	req := httptest.NewRequest(http.MethodGet, "/status/10", nil)
 	resp := testCode(t, req, 200)
-	bytes, _ := ioutil.ReadAll(resp.Body)
+	bytes, _ := io.ReadAll(resp.Body)
 	assert.Contains(t, string(bytes), `"error":"err"`)
 	mID := providerMock.VerifyWasCalled(pegomock.Once()).Get(pegomock.AnyString()).GetCapturedArguments()
 	assert.Equal(t, "10", mID)

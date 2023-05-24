@@ -25,17 +25,17 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 )
 
-//FileSaver provides save file functionality
+// FileSaver provides save file functionality
 type FileSaver interface {
 	Save(name string, r io.Reader) error
 }
 
-//MsgSender provides send msg functionality
+// MsgSender provides send msg functionality
 type MsgSender interface {
 	Send(msg amessages.Message, queue, replyQueue string) error
 }
 
-//RequestSaver saves requests to DB
+// RequestSaver saves requests to DB
 type RequestSaver interface {
 	Save(req *persistence.ReqData) error
 }
@@ -51,7 +51,7 @@ type Data struct {
 
 const requestIDHEader = "x-doorman-requestid"
 
-//StartWebServer starts echo web service
+// StartWebServer starts echo web service
 func StartWebServer(data *Data) error {
 	goapp.Log.Infof("Starting HTTP BIG TTS Line service at %d", data.Port)
 	if err := validate(data); err != nil {
@@ -209,7 +209,9 @@ func getInputData(c echo.Context, cfg *TTSConfigutaror) (*persistence.ReqData, e
 
 func cleanFiles(f *multipart.Form) {
 	if f != nil {
-		f.RemoveAll()
+		if err := f.RemoveAll(); err != nil {
+			goapp.Log.Error(err)
+		}
 	}
 }
 

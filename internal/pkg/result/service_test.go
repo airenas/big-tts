@@ -1,7 +1,7 @@
 package result
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -73,15 +73,15 @@ func TestWrongMethod(t *testing.T) {
 func Test_Returns(t *testing.T) {
 	initTest(t)
 
-	tf, err := ioutil.TempFile("", "tmpFile.txt")
-	tf.WriteString("olia")
+	tf, err := os.CreateTemp("", "tmpFile.txt")
+	_, _ = tf.WriteString("olia")
 	assert.Nil(t, err)
 	defer os.RemoveAll(tf.Name())
 
 	pegomock.When(readerMock.Load(pegomock.AnyString())).ThenReturn(tf, nil)
 	req := httptest.NewRequest(http.MethodGet, "/result/1", nil)
 	resp := testCode(t, req, 200)
-	bytes, _ := ioutil.ReadAll(resp.Body)
+	bytes, _ := io.ReadAll(resp.Body)
 	assert.Equal(t, "olia", string(bytes))
 }
 
