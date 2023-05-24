@@ -80,12 +80,12 @@ func Test_WorkMsg(t *testing.T) {
 	close(tWrkCh)
 	waitT(t, ch)
 
-	tEmailRetriever.VerifyWasCalledOnce().GetEmail(pegomock.AnyString())
+	tEmailRetriever.VerifyWasCalledOnce().GetEmail(pegomock.Any[string]())
 	tEmailMaker.VerifyWasCalledOnce().Make(pegomock.Any[*ainform.Data]())
-	gLockID, gLockType := tLocker.VerifyWasCalledOnce().Lock(pegomock.AnyString(), pegomock.AnyString()).GetCapturedArguments()
+	gLockID, gLockType := tLocker.VerifyWasCalledOnce().Lock(pegomock.Any[string](), pegomock.Any[string]()).GetCapturedArguments()
 	assert.Equal(t, "olia", gLockID)
 	assert.Equal(t, amessages.InformTypeStarted, gLockType)
-	gUnlockID, gUnlockType, gUnlockValue := tLocker.VerifyWasCalledOnce().UnLock(pegomock.AnyString(), pegomock.AnyString(), pegomock.Any[*int]()).GetCapturedArguments()
+	gUnlockID, gUnlockType, gUnlockValue := tLocker.VerifyWasCalledOnce().UnLock(pegomock.Any[string](), pegomock.Any[string](), pegomock.Any[*int]()).GetCapturedArguments()
 	assert.Equal(t, "olia", gUnlockID)
 	assert.Equal(t, amessages.InformTypeStarted, gUnlockType)
 	assert.Equal(t, 2, *gUnlockValue)
@@ -100,15 +100,15 @@ func Test_WorkMsg_FailRetriever(t *testing.T) {
 	msg := amessages.InformMessage{QueueMessage: amessages.QueueMessage{ID: "olia"}, At: time.Now(), Type: amessages.InformTypeStarted}
 	msgdata, _ := json.Marshal(msg)
 
-	pegomock.When(tEmailRetriever.GetEmail(pegomock.AnyString())).ThenReturn("", errors.New("err"))
+	pegomock.When(tEmailRetriever.GetEmail(pegomock.Any[string]())).ThenReturn("", errors.New("err"))
 	tWrkCh <- amqp.Delivery{Body: msgdata}
 	close(tWrkCh)
 	waitT(t, ch)
 
-	tEmailRetriever.VerifyWasCalledOnce().GetEmail(pegomock.AnyString())
+	tEmailRetriever.VerifyWasCalledOnce().GetEmail(pegomock.Any[string]())
 	tEmailMaker.VerifyWasCalled(pegomock.Never()).Make(pegomock.Any[*ainform.Data]())
-	tLocker.VerifyWasCalled(pegomock.Never()).Lock(pegomock.AnyString(), pegomock.AnyString())
-	tLocker.VerifyWasCalled(pegomock.Never()).UnLock(pegomock.AnyString(), pegomock.AnyString(), pegomock.Any[*int]())
+	tLocker.VerifyWasCalled(pegomock.Never()).Lock(pegomock.Any[string](), pegomock.Any[string]())
+	tLocker.VerifyWasCalled(pegomock.Never()).UnLock(pegomock.Any[string](), pegomock.Any[string](), pegomock.Any[*int]())
 	tSender.VerifyWasCalled(pegomock.Never()).Send(pegomock.Any[*email.Email]())
 }
 
@@ -125,10 +125,10 @@ func Test_WorkMsg_FailMaker(t *testing.T) {
 	close(tWrkCh)
 	waitT(t, ch)
 
-	tEmailRetriever.VerifyWasCalledOnce().GetEmail(pegomock.AnyString())
+	tEmailRetriever.VerifyWasCalledOnce().GetEmail(pegomock.Any[string]())
 	tEmailMaker.VerifyWasCalledOnce().Make(pegomock.Any[*ainform.Data]())
-	tLocker.VerifyWasCalled(pegomock.Never()).Lock(pegomock.AnyString(), pegomock.AnyString())
-	tLocker.VerifyWasCalled(pegomock.Never()).UnLock(pegomock.AnyString(), pegomock.AnyString(), pegomock.Any[*int]())
+	tLocker.VerifyWasCalled(pegomock.Never()).Lock(pegomock.Any[string](), pegomock.Any[string]())
+	tLocker.VerifyWasCalled(pegomock.Never()).UnLock(pegomock.Any[string](), pegomock.Any[string](), pegomock.Any[*int]())
 	tSender.VerifyWasCalled(pegomock.Never()).Send(pegomock.Any[*email.Email]())
 }
 
@@ -140,15 +140,15 @@ func Test_WorkMsg_FailLocker(t *testing.T) {
 	msg := amessages.InformMessage{QueueMessage: amessages.QueueMessage{ID: "olia"}, At: time.Now(), Type: amessages.InformTypeStarted}
 	msgdata, _ := json.Marshal(msg)
 
-	pegomock.When(tLocker.Lock(pegomock.AnyString(), pegomock.AnyString())).ThenReturn(errors.New("err"))
+	pegomock.When(tLocker.Lock(pegomock.Any[string](), pegomock.Any[string]())).ThenReturn(errors.New("err"))
 	tWrkCh <- amqp.Delivery{Body: msgdata}
 	close(tWrkCh)
 	waitT(t, ch)
 
-	tEmailRetriever.VerifyWasCalledOnce().GetEmail(pegomock.AnyString())
+	tEmailRetriever.VerifyWasCalledOnce().GetEmail(pegomock.Any[string]())
 	tEmailMaker.VerifyWasCalledOnce().Make(pegomock.Any[*ainform.Data]())
-	tLocker.VerifyWasCalledOnce().Lock(pegomock.AnyString(), pegomock.AnyString())
-	tLocker.VerifyWasCalled(pegomock.Never()).UnLock(pegomock.AnyString(), pegomock.AnyString(), pegomock.Any[*int]())
+	tLocker.VerifyWasCalledOnce().Lock(pegomock.Any[string](), pegomock.Any[string]())
+	tLocker.VerifyWasCalled(pegomock.Never()).UnLock(pegomock.Any[string](), pegomock.Any[string](), pegomock.Any[*int]())
 	tSender.VerifyWasCalled(pegomock.Never()).Send(pegomock.Any[*email.Email]())
 }
 
@@ -165,10 +165,10 @@ func Test_WorkMsg_FailSender(t *testing.T) {
 	close(tWrkCh)
 	waitT(t, ch)
 
-	tEmailRetriever.VerifyWasCalledOnce().GetEmail(pegomock.AnyString())
+	tEmailRetriever.VerifyWasCalledOnce().GetEmail(pegomock.Any[string]())
 	tEmailMaker.VerifyWasCalledOnce().Make(pegomock.Any[*ainform.Data]())
-	tLocker.VerifyWasCalledOnce().Lock(pegomock.AnyString(), pegomock.AnyString())
-	gUnlockID, gUnlockType, gUnlockValue := tLocker.VerifyWasCalledOnce().UnLock(pegomock.AnyString(), pegomock.AnyString(), pegomock.Any[*int]()).GetCapturedArguments()
+	tLocker.VerifyWasCalledOnce().Lock(pegomock.Any[string](), pegomock.Any[string]())
+	gUnlockID, gUnlockType, gUnlockValue := tLocker.VerifyWasCalledOnce().UnLock(pegomock.Any[string](), pegomock.Any[string](), pegomock.Any[*int]()).GetCapturedArguments()
 	assert.Equal(t, "olia", gUnlockID)
 	assert.Equal(t, amessages.InformTypeStarted, gUnlockType)
 	assert.Equal(t, 0, *gUnlockValue)

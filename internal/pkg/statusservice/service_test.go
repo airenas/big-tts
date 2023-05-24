@@ -49,36 +49,36 @@ func TestWrongMethod(t *testing.T) {
 
 func Test_Returns(t *testing.T) {
 	initTest(t)
-	pegomock.When(providerMock.Get(pegomock.AnyString())).ThenReturn(&persistence.Status{ID: "10", Status: "olia"}, nil)
+	pegomock.When(providerMock.Get(pegomock.Any[string]())).ThenReturn(&persistence.Status{ID: "10", Status: "olia"}, nil)
 	req := httptest.NewRequest(http.MethodGet, "/status/10", nil)
 	resp := testCode(t, req, 200)
 	bytes, _ := io.ReadAll(resp.Body)
 	assert.Contains(t, string(bytes), `"status":"olia"`)
-	mID := providerMock.VerifyWasCalled(pegomock.Once()).Get(pegomock.AnyString()).GetCapturedArguments()
+	mID := providerMock.VerifyWasCalled(pegomock.Once()).Get(pegomock.Any[string]()).GetCapturedArguments()
 	assert.Equal(t, "10", mID)
 }
 
 func Test_Returns_Error(t *testing.T) {
 	initTest(t)
-	pegomock.When(providerMock.Get(pegomock.AnyString())).ThenReturn(&persistence.Status{ID: "10", Status: "olia", Error: "err"}, nil)
+	pegomock.When(providerMock.Get(pegomock.Any[string]())).ThenReturn(&persistence.Status{ID: "10", Status: "olia", Error: "err"}, nil)
 	req := httptest.NewRequest(http.MethodGet, "/status/10", nil)
 	resp := testCode(t, req, 200)
 	bytes, _ := io.ReadAll(resp.Body)
 	assert.Contains(t, string(bytes), `"error":"err"`)
-	mID := providerMock.VerifyWasCalled(pegomock.Once()).Get(pegomock.AnyString()).GetCapturedArguments()
+	mID := providerMock.VerifyWasCalled(pegomock.Once()).Get(pegomock.Any[string]()).GetCapturedArguments()
 	assert.Equal(t, "10", mID)
 }
 
 func Test_Fails(t *testing.T) {
 	initTest(t)
-	pegomock.When(providerMock.Get(pegomock.AnyString())).ThenReturn(nil, errors.New("olia"))
+	pegomock.When(providerMock.Get(pegomock.Any[string]())).ThenReturn(nil, errors.New("olia"))
 	req := httptest.NewRequest(http.MethodGet, "/status/10", nil)
 	testCode(t, req, 500)
 }
 
 func Test_Fails_NoStatus(t *testing.T) {
 	initTest(t)
-	pegomock.When(providerMock.Get(pegomock.AnyString())).ThenReturn(nil, nil)
+	pegomock.When(providerMock.Get(pegomock.Any[string]())).ThenReturn(nil, nil)
 	req := httptest.NewRequest(http.MethodGet, "/status/10", nil)
 	testCode(t, req, 400)
 }

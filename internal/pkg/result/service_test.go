@@ -78,7 +78,7 @@ func Test_Returns(t *testing.T) {
 	assert.Nil(t, err)
 	defer os.RemoveAll(tf.Name())
 
-	pegomock.When(readerMock.Load(pegomock.AnyString())).ThenReturn(tf, nil)
+	pegomock.When(readerMock.Load(pegomock.Any[string]())).ThenReturn(tf, nil)
 	req := httptest.NewRequest(http.MethodGet, "/result/1", nil)
 	resp := testCode(t, req, 200)
 	bytes, _ := io.ReadAll(resp.Body)
@@ -94,14 +94,14 @@ func Test_404(t *testing.T) {
 func Test_Fails_NameProvider(t *testing.T) {
 	initTest(t)
 	req := httptest.NewRequest(http.MethodGet, "/result/1", nil)
-	pegomock.When(nProviderMock.GetResultFile(pegomock.AnyString())).ThenReturn("", errors.New("err"))
+	pegomock.When(nProviderMock.GetResultFile(pegomock.Any[string]())).ThenReturn("", errors.New("err"))
 	testCode(t, req, http.StatusBadRequest)
 }
 
 func Test_Fails_Reader(t *testing.T) {
 	initTest(t)
 	req := httptest.NewRequest(http.MethodGet, "/result/1", nil)
-	pegomock.When(readerMock.Load(pegomock.AnyString())).ThenReturn(nil, errors.New("err"))
+	pegomock.When(readerMock.Load(pegomock.Any[string]())).ThenReturn(nil, errors.New("err"))
 
 	testCode(t, req, http.StatusInternalServerError)
 }

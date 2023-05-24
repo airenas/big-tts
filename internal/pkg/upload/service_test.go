@@ -98,7 +98,7 @@ func Test_400(t *testing.T) {
 func Test_Fails_Saver(t *testing.T) {
 	initTest(t)
 	req := newTestRequest("file", "file.txt", "olia", nil)
-	pegomock.When(saverMock.Save(pegomock.AnyString(), pegomock.Any[io.Reader]())).ThenReturn(errors.New("err"))
+	pegomock.When(saverMock.Save(pegomock.Any[string](), pegomock.Any[io.Reader]())).ThenReturn(errors.New("err"))
 
 	testCode(t, req, http.StatusInternalServerError)
 }
@@ -114,7 +114,7 @@ func Test_Fails_ReqSaver(t *testing.T) {
 func Test_Fails_MsgSender(t *testing.T) {
 	initTest(t)
 	req := newTestRequest("file", "file.txt", "olia", nil)
-	pegomock.When(senderMock.Send(pegomock.Any[amessages.Message](), pegomock.AnyString(), pegomock.AnyString())).ThenReturn(errors.New("err"))
+	pegomock.When(senderMock.Send(pegomock.Any[amessages.Message](), pegomock.Any[string](), pegomock.Any[string]())).ThenReturn(errors.New("err"))
 
 	testCode(t, req, http.StatusInternalServerError)
 }
