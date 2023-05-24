@@ -26,8 +26,8 @@ test/integration:
 ## code vet and lint
 test/lint: 
 	go vet ./...
-	go install golang.org/x/lint/golint@latest
-	golint -set_exit_status ./...
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	golangci-lint run -v ./...
 .PHONY: test/lint
 #####################################################################################
 ## build docker for provided service
@@ -52,7 +52,7 @@ docker/%/scan:
 #####################################################################################
 ## cleans temporary data
 clean:
-	go mod tidy -compat=1.17
+	go mod tidy -compat=1.19
 	go clean
 .PHONY: clean
 #####################################################################################
