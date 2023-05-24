@@ -153,7 +153,7 @@ func processMsg(d *amqp.Delivery, f prFunc, data *ServiceData) error {
 	goapp.Log.Infof("Got msg: %s", d.RoutingKey)
 	var message messages.TTSMessage
 	if err := json.Unmarshal(d.Body, &message); err != nil {
-		d.Nack(false, false)
+		_ = d.Nack(false, false)
 		return errors.Wrap(err, "can't unmarshal message "+string(d.Body))
 	}
 	redeliver, err := f(&message, data)

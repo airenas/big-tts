@@ -13,23 +13,23 @@ import (
 	"github.com/streadway/amqp"
 )
 
-//Sender send emails
+// Sender send emails
 type Sender interface {
 	Send(email *email.Email) error
 }
 
-//EmailMaker prepares the email
+// EmailMaker prepares the email
 type EmailMaker interface {
 	Make(data *inform.Data) (*email.Email, error)
 }
 
-//EmailRetriever return the email by ID
+// EmailRetriever return the email by ID
 type EmailRetriever interface {
 	GetEmail(ID string) (string, error)
 }
 
-//Locker tracks email sending process
-//It is used to quarantee not to send the emails twice
+// Locker tracks email sending process
+// It is used to quarantee not to send the emails twice
 type Locker interface {
 	Lock(id string, lockKey string) error
 	UnLock(id string, lockKey string, value *int) error
@@ -46,7 +46,7 @@ type ServiceData struct {
 	Location       *time.Location
 }
 
-//StartWorkerService starts the event queue listener service to listen for configured events
+// StartWorkerService starts the event queue listener service to listen for configured events
 // return channel to track the finish event
 //
 // to wait sync for the service to finish:
@@ -86,7 +86,7 @@ func validate(data *ServiceData) error {
 	return nil
 }
 
-//work is main method to send the message
+// work is main method to send the message
 func work(data *ServiceData, message *messages.InformMessage) error {
 	goapp.Log.Infof("Got task %s for ID: %s", data.TaskName, message.ID)
 
@@ -114,7 +114,11 @@ func work(data *ServiceData, message *messages.InformMessage) error {
 		return errors.Wrap(err, "can't lock mail table")
 	}
 	var unlockValue = 0
-	defer data.Locker.UnLock(mailData.ID, mailData.MsgType, &unlockValue)
+	defer func() {
+		if err := data.Locker.UnLock(mailData.ID, mailData.MsgType, &unlockValue); err != nil {
+			goapp.Log.Error(err)
+		}
+	}()
 
 	err = data.EmailSender.Send(email)
 	if err != nil {
@@ -150,7 +154,7 @@ func listenQueue(ctx context.Context, q <-chan amqp.Delivery, data *ServiceData,
 func processMsg(ctx context.Context, d *amqp.Delivery, data *ServiceData) error {
 	var message messages.InformMessage
 	if err := json.Unmarshal(d.Body, &message); err != nil {
-		d.Nack(false, false)
+		_ = d.Nack(false, false)
 		return errors.Wrap(err, "can't unmarshal message "+string(d.Body))
 	}
 	err := work(data, &message)

@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -22,7 +21,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-//Worker implements synthesize one part functionality
+// Worker implements synthesize one part functionality
 type Worker struct {
 	inDir       string
 	outDir      string
@@ -37,7 +36,7 @@ type Worker struct {
 	callFunc      func(string, *messages.TTSMessage) ([]byte, error)
 }
 
-//NewWorker creates new synthesize worker
+// NewWorker creates new synthesize worker
 func NewWorker(inTemplate, outTemplate string, url string, workerCount int) (*Worker, error) {
 	if !strings.Contains(inTemplate, "{}") {
 		return nil, errors.Errorf("no ID template in inTemplate")
@@ -52,7 +51,7 @@ func NewWorker(inTemplate, outTemplate string, url string, workerCount int) (*Wo
 		return nil, errors.Errorf("no workerCount provided")
 	}
 	res := &Worker{inDir: inTemplate, outDir: outTemplate, serviceURL: url}
-	res.loadFunc = ioutil.ReadFile
+	res.loadFunc = os.ReadFile
 	res.saveFunc = utils.WriteFile
 	res.existsFunc = utils.FileExists
 	res.createDirFunc = func(name string) error { return os.MkdirAll(name, os.ModePerm) }
@@ -72,7 +71,7 @@ func NewWorker(inTemplate, outTemplate string, url string, workerCount int) (*Wo
 	return res, nil
 }
 
-//Do synthesizes one part of a text
+// Do synthesizes one part of a text
 func (w *Worker) Do(ctx context.Context, msg *messages.TTSMessage) error {
 	goapp.Log.Infof("Doing synthesize job for %s", msg.ID)
 	outDir := strings.ReplaceAll(w.outDir, "{}", msg.ID)
@@ -227,7 +226,7 @@ func (w *Worker) invokeRemote(dataIn input, dataOut *result, saveTags []string) 
 		}
 		return err
 	}
-	br, err := ioutil.ReadAll(resp.Body)
+	br, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return errors.Wrap(err, "can't read body")
 	}

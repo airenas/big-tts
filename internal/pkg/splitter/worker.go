@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/xml"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -38,7 +37,7 @@ func NewWorker(loadPath string, savePath string) (*Worker, error) {
 		return nil, errors.Errorf("no ID template in save path")
 	}
 	res := &Worker{loadPath: loadPath, savePath: savePath}
-	res.loadFunc = ioutil.ReadFile
+	res.loadFunc = os.ReadFile
 	res.saveFunc = utils.WriteFile
 	res.createDirFunc = func(name string) error { return os.MkdirAll(name, os.ModePerm) }
 	res.wantedChars = 1900
@@ -166,7 +165,7 @@ func toRateStr(f float32) string {
 	} else if f < .5 {
 		f = .5
 	}
-	p := 100
+	var p int
 	if f > 1 {
 		p = int(150 - 50*f)
 	} else {
@@ -198,7 +197,7 @@ func (w *Worker) splitTextParts(texts []ssml.TextPart) ([]*ssml.TextPart, error)
 	var res []*ssml.TextPart
 	tb := strings.Builder{}
 	for _, tp := range texts {
-		if (tb.Len() > 0) {
+		if tb.Len() > 0 {
 			tb.WriteString(" ")
 		}
 		tb.WriteString(getPartText(&tp))

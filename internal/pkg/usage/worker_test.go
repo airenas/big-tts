@@ -2,7 +2,7 @@ package usage
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -23,7 +23,7 @@ func TestNewWorker(t *testing.T) {
 func TestWorker_Do(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/tt/restore/m:rid", r.RequestURI)
-		b, _ := ioutil.ReadAll(r.Body)
+		b, _ := io.ReadAll(r.Body)
 		assert.Equal(t, `{"error":"err"}`, string(b))
 		rw.WriteHeader(http.StatusOK)
 	}))
