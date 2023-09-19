@@ -1,6 +1,6 @@
 module github.com/airenas/big-tts
 
-go 1.19
+go 1.21
 
 require (
 	github.com/airenas/async-api v0.3.51

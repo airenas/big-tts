@@ -16,7 +16,7 @@ renew-async-api:
 #####################################################################################
 ## call units tests
 test/unit: 
-	go test -v -race -count=1 ./...
+	go test -race -count=1 ./...
 .PHONY: test/unit
 ## run integration tests
 test/integration: 
@@ -52,7 +52,7 @@ docker/%/scan:
 #####################################################################################
 ## cleans temporary data
 clean:
-	go mod tidy -compat=1.19
+	go mod tidy
 	go clean
 .PHONY: clean
 #####################################################################################
