@@ -200,6 +200,11 @@ func TestWorker_doSSML(t *testing.T) {
 		want    []string
 		wantErr bool
 	}{
+		{name: "do not split at word tag", wChars: 30, args: `<speak>laba diena <intelektika:w acc="oli{a/}" syll="o-l-ia" user="O'li*a">olia</intelektika:w> laba diena. laba diena laba diena</speak>`,
+			want:    []string{`<speak><voice name="vd"><prosody rate="75%">laba diena<intelektika:w acc="oli{a/}" syll="o-l-ia" user="O&#39;li*a">olia</intelektika:w>laba diena.</prosody></voice></speak>`, 
+			`<speak><voice name="vd"><prosody rate="75%">laba diena laba diena</prosody></voice></speak>`},
+			wantErr: false},
+
 		{name: "splits many words", wChars: 20, args: `<speak><intelektika:w acc="dfasdf{a/}">asdfg</intelektika:w><intelektika:w acc="dfasdf{a/}">asdfg</intelektika:w>` +
 			`<intelektika:w acc="dfasdf{a/}">asdfg</intelektika:w><intelektika:w acc="dfasdf{a/}">asdfg</intelektika:w></speak>`,
 			want: []string{`<speak><voice name="vd"><prosody rate="75%"><intelektika:w acc="dfasdf{a/}">asdfg</intelektika:w>` +
@@ -209,11 +214,11 @@ func TestWorker_doSSML(t *testing.T) {
 			wantErr: false},
 		{name: "splits with words", wChars: 20, args: `<speak><intelektika:w acc="asdfasdf{a/}">asdfgasdfg</intelektika:w>0123456789 0123456789</speak>`,
 			want: []string{`<speak><voice name="vd"><prosody rate="75%"><intelektika:w acc="asdfasdf{a/}">asdfgasdfg</intelektika:w>0123456789</prosody></voice></speak>`,
-				`<speak><voice name="vd"><prosody rate="75%"> 0123456789</prosody></voice></speak>`},
+				`<speak><voice name="vd"><prosody rate="75%">0123456789</prosody></voice></speak>`},
 			wantErr: false},
 		{name: "splits", wChars: 20, args: "<speak>0123456789 0123456789 0123456789</speak>",
 			want: []string{`<speak><voice name="vd"><prosody rate="75%">0123456789 0123456789</prosody></voice></speak>`,
-				`<speak><voice name="vd"><prosody rate="75%"> 0123456789</prosody></voice></speak>`},
+				`<speak><voice name="vd"><prosody rate="75%">0123456789</prosody></voice></speak>`},
 			wantErr: false},
 		{name: "no text", wChars: 20, args: "", want: nil, wantErr: true},
 		{name: "no split", wChars: 20, args: "<speak>olia</speak>",
@@ -221,7 +226,7 @@ func TestWorker_doSSML(t *testing.T) {
 			wantErr: false},
 		{name: "add break", wChars: 20, args: "<speak>0123456789 0123456789 0123456789<p/></speak>",
 			want: []string{`<speak><voice name="vd"><prosody rate="75%">0123456789 0123456789</prosody></voice></speak>`,
-				`<speak><voice name="vd"><prosody rate="75%"> 0123456789</prosody></voice><break time="1250ms"/></speak>`},
+				`<speak><voice name="vd"><prosody rate="75%">0123456789</prosody></voice><break time="1250ms"/></speak>`},
 			wantErr: false},
 		{name: "add several to one shot", wChars: 100, args: `<speak>0123456789 0123456789<p/> 
 		<voice name="oovd"><prosody rate="x-slow">0123456789</prosody></voice></speak>`,

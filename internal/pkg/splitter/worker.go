@@ -97,8 +97,8 @@ func (w *Worker) doSSML(text string, voice string, speed float64) ([]string, err
 			if err != nil {
 				return nil, errors.Wrapf(err, "can't split")
 			}
-			for _, txt := range txts {
-				pLen := utf8.RuneCountInString(getPartText(txt))
+			for _, txtParts := range txts {
+				pLen := getRuneCount(txtParts)
 				if cLen+pLen > maxChars {
 					if len(cParts) > 0 {
 						res = append(res, saveToSSMLString(cParts))
@@ -109,7 +109,10 @@ func (w *Worker) doSSML(text string, voice string, speed float64) ([]string, err
 					cPart = &ssml.Text{Texts: []ssml.TextPart{}, Voice: sp.Voice, Speed: sp.Speed}
 					cParts = append(cParts, cPart)
 				}
-				cPart.Texts, cLen = append(cPart.Texts, *txt), cLen+pLen
+				for _, p := range txtParts {
+					cPart.Texts = append(cPart.Texts, *p)
+				}
+				cLen += pLen 
 			}
 		case *ssml.Pause:
 			cParts = append(cParts, sp)
@@ -129,6 +132,15 @@ func getPartText(txt *ssml.TextPart) string {
 	}
 	return txt.Text
 }
+
+func getRuneCount(txt []*ssml.TextPart) int {
+	res := 0
+	for _, p := range txt {
+		res += utf8.RuneCountInString(getPartText(p))
+	}
+	return res
+}
+
 
 func saveToSSMLString(cParts []ssml.Part) string {
 	res := strings.Builder{}
@@ -156,7 +168,7 @@ func saveToSSMLString(cParts []ssml.Part) string {
 					_ = xml.EscapeText(&res, []byte(tp.Text))
 					res.WriteString(`</intelektika:w>`)
 				} else {
-					_ = xml.EscapeText(&res, []byte(tp.Text))
+					_ = xml.EscapeText(&res, []byte(strings.TrimLeft(tp.Text, " ")))
 				}
 			}
 			res.WriteString(`</prosody></voice>`)
@@ -204,8 +216,8 @@ type partRemaining struct {
 	pPart, pText int
 }
 
-func (w *Worker) splitTextParts(texts []ssml.TextPart) ([]*ssml.TextPart, error) {
-	var res []*ssml.TextPart
+func (w *Worker) splitTextParts(texts []ssml.TextPart) ([][]*ssml.TextPart, error) {
+	var res [][]*ssml.TextPart
 	tb := strings.Builder{}
 	for _, tp := range texts {
 		if tb.Len() > 0 {
@@ -223,7 +235,7 @@ func (w *Worker) splitTextParts(texts []ssml.TextPart) ([]*ssml.TextPart, error)
 			return nil, err
 		}
 
-		res = append(res, pl.getPartsTo(pos)...)
+		res = append(res, pl.getPartsTo(pos))
 		rns = rns[pos:]
 	}
 	return res, nil
