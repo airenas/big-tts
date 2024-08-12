@@ -238,5 +238,5 @@ func (w *Worker) invokeRemote(dataIn input, dataOut *result, saveTags []string) 
 }
 
 func isNonRestorableErrCode(c int) bool {
-	return c >= 400 && c < 500
+	return c < 400 // restore all 4xx and 5xx errors
 }
