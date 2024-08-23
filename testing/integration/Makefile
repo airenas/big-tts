@@ -12,19 +12,19 @@ help:
 #####################################################################################
 ## start all containers
 start: 
-	docker-compose up $(async) mongo rabbitmq upload synthesize inform status result clean
+	docker compose up $(async) mongo rabbitmq upload synthesize inform status result clean
 .PHONY: start
 ## invoke integration tests
 test/integration: start 
-	docker-compose up --build --exit-code-from integration-tests integration-tests
+	docker compose up --build --exit-code-from integration-tests integration-tests
 .PHONY: test/integration
 ## invoke integration tests in verbose mode
 test/integration/tmp:  
-	docker-compose up --build --exit-code-from integration-tests 
+	docker compose up --build --exit-code-from integration-tests 
 .PHONY: test/integration/tmp
 ## clean everything, stops docker containers and removes them
 clean:
-	docker-compose stop && docker-compose rm -f
+	docker compose down
 .PHONY: clean	
 #####################################################################################
 .EXPORT_ALL_VARIABLES:
