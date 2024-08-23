@@ -1,7 +1,7 @@
 #########################################################################################
 ## docker will invoke this file from ../.. dir in order to access code
 #########################################################################################
-FROM golang:1.21-alpine as builder
+FROM golang:1.21-alpine AS builder
 
 ARG BUILD_VERSION=0.1
 
@@ -16,7 +16,7 @@ COPY internal /go/src/internal
 
 RUN CGO_ENABLED=0 go build -o /go/bin/inform -ldflags "-X main.version=$BUILD_VERSION" cmd/inform/main.go
 #####################################################################################
-FROM alpine:3.15 as runner
+FROM alpine:3.15 AS runner
 
 ENV UID=999
 RUN addgroup app && adduser -S -G app app --uid $UID app
