@@ -25,6 +25,11 @@ jobs:
           image: airenas/big-tts-${{ matrix.container }}:latest
           args: --file=build/${{ matrix.container }}/Dockerfile
 
+      - name: Replace security-severity undefined or null findings 
+        run: |
+          sed -i 's/"security-severity": "undefined"/"security-severity": "0"/g' snyk.sarif
+          sed -i 's/"security-severity": "null"/"security-severity": "0"/g' snyk.sarif       
+
       - name: Make sarif file copy
         run: mv snyk.sarif snyk-${{ matrix.container }}.sarif
 
