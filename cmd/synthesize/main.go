@@ -88,7 +88,7 @@ func main() {
 	if err != nil {
 		goapp.Log.Fatal(errors.Wrap(err, "can't init synthesizer"))
 	}
-	data.UsageRestorer, err = usage.NewWorker(cfg.GetString("doorman.URL"))
+	data.UsageRestorer, err = usage.NewWorker(cfg.GetString("doorman.URL"), cfg.GetString("doorman.key"))
 	if err != nil {
 		goapp.Log.Fatal(errors.Wrap(err, "can't init usage restorer"))
 	}

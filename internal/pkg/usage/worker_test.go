@@ -13,10 +13,10 @@ import (
 )
 
 func TestNewWorker(t *testing.T) {
-	got, err := NewWorker("url")
+	got, err := NewWorker("url", "")
 	assert.Nil(t, err)
 	assert.NotNil(t, got)
-	_, err = NewWorker("")
+	_, err = NewWorker("", "")
 	assert.NotNil(t, err)
 }
 
@@ -28,7 +28,23 @@ func TestWorker_Do(t *testing.T) {
 		rw.WriteHeader(http.StatusOK)
 	}))
 	defer srv.Close()
-	got, err := NewWorker(srv.URL)
+	got, err := NewWorker(srv.URL, "")
+	assert.Nil(t, err)
+	err = got.Do(context.Background(), &messages.TTSMessage{QueueMessage: amessages.QueueMessage{ID: "id1", Error: "err"},
+		RequestID: "tt:m:rid"})
+	assert.Nil(t, err)
+}
+
+func TestWorker_AddHeader(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "Key some-secret-key", r.Header.Get("Authorization"))
+		assert.Equal(t, "/tt/restore/m:rid", r.RequestURI)
+		b, _ := io.ReadAll(r.Body)
+		assert.Equal(t, `{"error":"err"}`, string(b))
+		rw.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+	got, err := NewWorker(srv.URL, "some-secret-key")
 	assert.Nil(t, err)
 	err = got.Do(context.Background(), &messages.TTSMessage{QueueMessage: amessages.QueueMessage{ID: "id1", Error: "err"},
 		RequestID: "tt:m:rid"})
@@ -40,7 +56,7 @@ func TestWorker_Skip_NoRequest(t *testing.T) {
 		assert.Fail(t, "unexpected call")
 	}))
 	defer srv.Close()
-	got, err := NewWorker(srv.URL)
+	got, err := NewWorker(srv.URL, "")
 	assert.Nil(t, err)
 	err = got.Do(context.Background(), &messages.TTSMessage{QueueMessage: amessages.QueueMessage{ID: "id1", Error: "err"},
 		RequestID: ""})
@@ -52,7 +68,7 @@ func TestWorker_Fail(t *testing.T) {
 		rw.WriteHeader(http.StatusBadRequest)
 	}))
 	defer srv.Close()
-	got, err := NewWorker(srv.URL)
+	got, err := NewWorker(srv.URL, "")
 	assert.Nil(t, err)
 	err = got.Do(context.Background(), &messages.TTSMessage{QueueMessage: amessages.QueueMessage{ID: "id1", Error: "err"},
 		RequestID: "tts:m:olia"})

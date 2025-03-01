@@ -15,18 +15,19 @@ import (
 	"github.com/pkg/errors"
 )
 
-//Worker implements usage restore functionality
+// Worker implements usage restore functionality
 type Worker struct {
 	serviceURL string
+	key        string
 	httpClient http.Client
 }
 
-//NewWorker creates new synthesize worker
-func NewWorker(url string) (*Worker, error) {
+// NewWorker creates new synthesize worker
+func NewWorker(url, key string) (*Worker, error) {
 	if url == "" {
 		return nil, errors.Errorf("no service URL")
 	}
-	res := &Worker{serviceURL: url}
+	res := &Worker{serviceURL: url, key: key}
 	res.httpClient = http.Client{Transport: &http.Transport{
 		MaxIdleConns:        5,
 		MaxIdleConnsPerHost: 5,
@@ -38,7 +39,7 @@ func NewWorker(url string) (*Worker, error) {
 	return res, nil
 }
 
-//Do tries to restore usage
+// Do tries to restore usage
 func (w *Worker) Do(ctx context.Context, msg *messages.TTSMessage) error {
 	goapp.Log.Infof("Doing usage restoratioon for %s. requestID: %s", msg.ID, msg.RequestID)
 	if msg.RequestID == "" {
@@ -76,6 +77,9 @@ func (w *Worker) invoke(service, requestID, errorMsg string) error {
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	if w.key != "" {
+		req.Header.Set("Authorization", fmt.Sprintf("Key %s", w.key))
+	}
 	ctx, cancelF := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancelF()
 	req = req.WithContext(ctx)
