@@ -2,8 +2,6 @@ package synthesizer
 
 import (
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -13,8 +11,10 @@ import (
 
 	amessages "github.com/airenas/async-api/pkg/messages"
 	"github.com/airenas/big-tts/internal/pkg/messages"
+	"github.com/labstack/echo/v4"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 func TestNewWorker(t *testing.T) {
@@ -55,7 +55,7 @@ func TestWorker_Do(t *testing.T) {
 		assert.Equal(t, "in/id1/0000.txt", s)
 		return []byte("olia"), nil
 	}
-	got.callFunc = func(s string, tm *messages.TTSMessage) ([]byte, error) {
+	got.callFunc = func(ctx context.Context, s string, tm *messages.TTSMessage) ([]byte, error) {
 		assert.Equal(t, "olia", s)
 		return []byte("done"), nil
 	}
@@ -91,7 +91,7 @@ func TestWorker_Do_Exists_Skip(t *testing.T) {
 		t.Error("not expected")
 		return nil, nil
 	}
-	got.callFunc = func(s string, tm *messages.TTSMessage) ([]byte, error) {
+	got.callFunc = func(ctx context.Context, s string, tm *messages.TTSMessage) ([]byte, error) {
 		t.Error("not expected")
 		return nil, nil
 	}
@@ -117,7 +117,7 @@ func TestWorker_Do_Fail_Invoke(t *testing.T) {
 	got.loadFunc = func(s string) ([]byte, error) {
 		return nil, errors.New("err")
 	}
-	got.callFunc = func(s string, tm *messages.TTSMessage) ([]byte, error) {
+	got.callFunc = func(ctx context.Context, s string, tm *messages.TTSMessage) ([]byte, error) {
 		t.Error("not expected")
 		return nil, nil
 	}
@@ -143,7 +143,7 @@ func TestWorker_Do_Fail_Calc(t *testing.T) {
 	got.loadFunc = func(s string) ([]byte, error) {
 		return []byte("in"), nil
 	}
-	got.callFunc = func(s string, tm *messages.TTSMessage) ([]byte, error) {
+	got.callFunc = func(ctx context.Context, s string, tm *messages.TTSMessage) ([]byte, error) {
 		return nil, errors.New("err")
 	}
 	got.saveFunc = func(ctx context.Context, s string, b []byte) error {
@@ -168,7 +168,7 @@ func TestWorker_Do_Exit_OnCancel(t *testing.T) {
 	got.loadFunc = func(s string) ([]byte, error) {
 		return []byte("in"), nil
 	}
-	got.callFunc = func(s string, tm *messages.TTSMessage) ([]byte, error) {
+	got.callFunc = func(ctx context.Context, s string, tm *messages.TTSMessage) ([]byte, error) {
 		return nil, errors.New("err")
 	}
 	ctx, cFunc := context.WithCancel(context.Background())
@@ -191,7 +191,7 @@ func TestWorker_Do_Exit_OnFailure(t *testing.T) {
 	}
 	var tCnt int64
 	tErr := errors.New("err")
-	got.callFunc = func(s string, tm *messages.TTSMessage) ([]byte, error) {
+	got.callFunc = func(ctx context.Context, s string, tm *messages.TTSMessage) ([]byte, error) {
 		if atomic.AddInt64(&tCnt, 1) == 1 {
 			time.Sleep(time.Millisecond * 10)
 		} else {
@@ -206,10 +206,11 @@ func TestWorker_Do_Exit_OnFailure(t *testing.T) {
 
 func TestWorker_Do_WithRealInvoke(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		rw.Header().Set(echo.HeaderContentType, echo.MIMEApplicationMsgpack)
 		rw.WriteHeader(http.StatusOK)
 		res := result{}
-		res.AudioAsString = base64.StdEncoding.EncodeToString([]byte("audio data"))
-		_ = json.NewEncoder(rw).Encode(res)
+		res.Audio = []byte("audio data")
+		_ = msgpack.NewEncoder(rw).Encode(res)
 	}))
 	defer srv.Close()
 

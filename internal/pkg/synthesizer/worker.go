@@ -3,7 +3,6 @@ package synthesizer
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -18,8 +17,10 @@ import (
 	"github.com/airenas/big-tts/internal/pkg/upload"
 	"github.com/airenas/big-tts/internal/pkg/utils"
 	"github.com/airenas/go-app/pkg/goapp"
+	"github.com/labstack/echo/v4"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 // Worker implements synthesize one part functionality
@@ -34,7 +35,7 @@ type Worker struct {
 	saveFunc      func(context.Context, string, []byte) error
 	createDirFunc func(string) error
 	existsFunc    func(string) bool
-	callFunc      func(string, *messages.TTSMessage) ([]byte, error)
+	callFunc      func(context.Context, string, *messages.TTSMessage) ([]byte, error)
 }
 
 // NewWorker creates new synthesize worker
@@ -74,7 +75,7 @@ func NewWorker(ctx context.Context, inTemplate, outTemplate string, url string, 
 
 // Do synthesizes one part of a text
 func (w *Worker) Do(ctx context.Context, msg *messages.TTSMessage) error {
-	log.Ctx(ctx).Info().Msgf("Doing synthesize job for %s", msg.ID)
+	log.Ctx(ctx).Info().Str("ID", msg.ID).Msg("synthesize job")
 	outDir := strings.ReplaceAll(w.outDir, "{}", msg.ID)
 	if err := w.createDirFunc(outDir); err != nil {
 		return errors.Wrapf(err, "can't create %s", outDir)
@@ -93,11 +94,11 @@ out:
 			// --- case syncCh <- struct{}{}: ---
 			select {
 			case <-ctx.Done():
-				log.Ctx(ctx).Warn().Msgf("Exit synthesizer loop")
+				log.Ctx(ctx).Warn().Msg("Exit synthesizer loop")
 				errCh <- context.Canceled
 				break out
 			case err := <-errCh:
-				log.Ctx(ctx).Info().Msgf("Error occurred, waiting to complete all jobs")
+				log.Ctx(ctx).Info().Msg("Error occurred, waiting to complete all jobs")
 				wg.Wait()
 				return err
 			default:
@@ -106,11 +107,11 @@ out:
 			select {
 			case syncCh <- struct{}{}:
 			case <-ctx.Done():
-				log.Ctx(ctx).Warn().Msgf("Exit synthesizer loop")
+				log.Ctx(ctx).Warn().Msg("Exit synthesizer loop")
 				errCh <- context.Canceled
 				break out
 			case err := <-errCh:
-				log.Ctx(ctx).Info().Msgf("Error occurred, waiting to complete all jobs")
+				log.Ctx(ctx).Info().Msg("Error occurred, waiting to complete all jobs")
 				wg.Wait()
 				return err
 			}
@@ -120,7 +121,7 @@ out:
 					wg.Done()
 					<-syncCh
 				}()
-				log.Ctx(ctx).Info().Msgf("Process item %d", _i)
+				log.Ctx(ctx).Info().Int("i", i).Msg("Process item")
 				err := w.invoke(ctx, _inF, _outF, msg)
 				if err != nil {
 					errCh <- err
@@ -128,7 +129,7 @@ out:
 			}(inF, outF, i)
 		}
 	}
-	log.Ctx(ctx).Info().Msgf("Waiting to complete all jobs")
+	log.Ctx(ctx).Info().Msg("Waiting to complete all jobs")
 	wg.Wait()
 	errCh <- nil
 	return <-errCh
@@ -152,7 +153,7 @@ func (w *Worker) invoke(ctx context.Context, inFile string, outFile string, msg 
 	if err != nil {
 		return err
 	}
-	bytes, err := w.callFunc(string(text), msg)
+	bytes, err := w.callFunc(ctx, string(text), msg)
 	if err != nil {
 		return err
 	}
@@ -161,8 +162,7 @@ func (w *Worker) invoke(ctx context.Context, inFile string, outFile string, msg 
 
 type (
 	input struct {
-		Text string `json:"text,omitempty"`
-		//Possible values are m4a, mp3
+		Text             string  `json:"text,omitempty"`
 		OutputFormat     string  `json:"outputFormat,omitempty"`
 		OutputTextFormat string  `json:"outputTextFormat,omitempty"`
 		AllowCollectData *bool   `json:"saveRequest,omitempty"`
@@ -172,26 +172,28 @@ type (
 	}
 
 	result struct {
-		AudioAsString string `json:"audioAsString,omitempty"`
-		Error         string `json:"error,omitempty"`
+		Audio     []byte `json:"audio,omitempty" msgpack:"audio,omitempty"`
+		Error     string `json:"error,omitempty" msgpack:"error,omitempty"`
+		Text      string `json:"text,omitempty" msgpack:"text,omitempty"`
+		RequestID string `json:"requestID,omitempty" msgpack:"requestID,omitempty"`
 	}
 )
 
-func (w *Worker) invokeService(data string, msg *messages.TTSMessage) ([]byte, error) {
+func (w *Worker) invokeService(ctx context.Context, data string, msg *messages.TTSMessage) ([]byte, error) {
 	inp := input{Text: data, OutputFormat: msg.OutputFormat,
 		Voice:            msg.Voice,
 		Speed:            float32(msg.Speed),
 		AllowCollectData: &msg.SaveRequest,
 		Priority:         300} // will indicate 300s wait on high load comparing to priority=0
 	var out result
-	err := w.invokeRemote(inp, &out, msg.SaveTags)
+	err := w.invokeRemote(ctx, inp, &out, msg.SaveTags)
 	if err != nil {
 		return nil, err
 	}
-	return base64.StdEncoding.DecodeString(out.AudioAsString)
+	return out.Audio, nil
 }
 
-func (w *Worker) invokeRemote(dataIn input, dataOut *result, saveTags []string) error {
+func (w *Worker) invokeRemote(ctx context.Context, dataIn input, dataOut *result, saveTags []string) error {
 	b := new(bytes.Buffer)
 	enc := json.NewEncoder(b)
 	enc.SetEscapeHTML(false)
@@ -203,15 +205,16 @@ func (w *Worker) invokeRemote(dataIn input, dataOut *result, saveTags []string) 
 	if err != nil {
 		return errors.Wrapf(err, "can't prepare request to '%s'", w.serviceURL)
 	}
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Set(echo.HeaderAccept, echo.MIMEApplicationMsgpack)
 	if len(saveTags) > 0 {
 		req.Header.Set(upload.HeaderSaveTags, strings.Join(saveTags, ","))
 	}
 
-	ctx, cancelF := context.WithTimeout(context.Background(), time.Minute*10)
+	ctx, cancelF := context.WithTimeout(ctx, time.Minute*10)
 	defer cancelF()
 	req = req.WithContext(ctx)
-	log.Ctx(ctx).Info().Msgf("Call: %s", goapp.Sanitize(req.URL.String()))
+	log.Ctx(ctx).Info().Str("url", goapp.Sanitize(req.URL.String())).Msg("Call")
 	resp, err := w.httpClient.Do(req)
 	if err != nil {
 		return errors.Wrapf(err, "can't call '%s'", req.URL.String())
@@ -227,15 +230,20 @@ func (w *Worker) invokeRemote(dataIn input, dataOut *result, saveTags []string) 
 		}
 		return err
 	}
-	br, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return errors.Wrap(err, "can't read body")
+
+	return w.unmarshalResponse(ctx, resp, dataOut)
+}
+
+func (w *Worker) unmarshalResponse(ctx context.Context, resp *http.Response, dataOut *result) error {
+	contentType := resp.Header.Get(echo.HeaderContentType)
+	if strings.Contains(contentType, echo.MIMEApplicationMsgpack) {
+		msgpackDecoder := msgpack.NewDecoder(resp.Body)
+		if err := msgpackDecoder.Decode(dataOut); err != nil {
+			return errors.Wrap(err, "can't decode msgpack response")
+		}
+		return nil
 	}
-	err = json.Unmarshal(br, dataOut)
-	if err != nil {
-		return errors.Wrap(err, "can't decode response")
-	}
-	return nil
+	return fmt.Errorf("wanted msgpack response: got '%s'", contentType)
 }
 
 func isNonRestorableErrCode(c int) bool {
