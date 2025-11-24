@@ -1,13 +1,14 @@
 package upload
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/airenas/big-tts/internal/pkg/persistence"
-	"github.com/airenas/go-app/pkg/goapp"
 	"github.com/labstack/echo/v4"
+	"github.com/rs/zerolog/log"
 
 	"github.com/pkg/errors"
 )
@@ -16,34 +17,34 @@ const (
 	headerDefaultFormat = "x-tts-default-output-format"
 	headerCollectData   = "x-tts-collect-data"
 	//HeaderSaveTags http header name for providing tags for saving to DB
-	HeaderSaveTags      = "x-tts-save-tags"
+	HeaderSaveTags = "x-tts-save-tags"
 )
 
-//TTSConfigutaror tts request configuration
+// TTSConfigutaror tts request configuration
 type TTSConfigutaror struct {
 	defaultOutputFormat string
 	defaultVoice        string
 	availableVoices     map[string]bool
 }
 
-//NewTTSConfigurator creates the initial request configuration
-func NewTTSConfigurator(format, voice string, voices []string) (*TTSConfigutaror, error) {
+// NewTTSConfigurator creates the initial request configuration
+func NewTTSConfigurator(ctx context.Context, format, voice string, voices []string) (*TTSConfigutaror, error) {
 	res := &TTSConfigutaror{}
 	var err error
 	res.defaultOutputFormat, err = getOutputAudioFormat(format)
 	if err != nil {
 		return nil, errors.Wrap(err, "can't init default format")
 	}
-	goapp.Log.Infof("Default output format: %s", res.defaultOutputFormat)
+	log.Ctx(ctx).Info().Msgf("Default output format: %s", res.defaultOutputFormat)
 	res.defaultVoice, res.availableVoices, err = initVoices(voice, voices)
 	if err != nil {
 		return nil, errors.Wrap(err, "can't init voices")
 	}
-	goapp.Log.Infof("Voices. Default: %s, all: %v", res.defaultVoice, res.availableVoices)
+	log.Ctx(ctx).Info().Msgf("Voices. Default: %s, all: %v", res.defaultVoice, res.availableVoices)
 	return res, nil
 }
 
-//Configure prepares request configuration
+// Configure prepares request configuration
 func (c *TTSConfigutaror) Configure(e echo.Context) (*persistence.ReqData, error) {
 	res := &persistence.ReqData{}
 	var err error

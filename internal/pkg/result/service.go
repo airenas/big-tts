@@ -1,13 +1,16 @@
 package result
 
 import (
-	"log"
+	"context"
 	"net/http"
 	"strconv"
 	"time"
 
+	slog "log"
+
 	"github.com/facebookgo/grace/gracehttp"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 
 	"github.com/airenas/async-api/pkg/api"
 	"github.com/airenas/go-app/pkg/goapp"
@@ -34,9 +37,9 @@ type Data struct {
 	NameProvider FileNameProvider
 }
 
-//StartWebServer starts echo web service
-func StartWebServer(data *Data) error {
-	goapp.Log.Infof("Starting BIG TTS Result service at %d", data.Port)
+// StartWebServer starts echo web service
+func StartWebServer(ctx context.Context, data *Data) error {
+	log.Ctx(ctx).Info().Msgf("Starting BIG TTS Result service at %d", data.Port)
 
 	if err := validate(data); err != nil {
 		return err
@@ -44,16 +47,14 @@ func StartWebServer(data *Data) error {
 
 	portStr := strconv.Itoa(data.Port)
 
-	e := initRoutes(data)
+	e := initRoutes(ctx, data)
 
 	e.Server.Addr = ":" + portStr
 	e.Server.ReadHeaderTimeout = 5 * time.Second
 	e.Server.ReadTimeout = 10 * time.Second
 	e.Server.WriteTimeout = 5 * time.Minute
 
-	w := goapp.Log.Writer()
-	defer w.Close()
-	gracehttp.SetLogger(log.New(w, "", 0))
+	gracehttp.SetLogger(slog.New(goapp.Log, "", 0))
 
 	return gracehttp.Serve(e.Server)
 }
@@ -74,7 +75,7 @@ func init() {
 	promMdlw = prometheus.NewPrometheus("tts_result", nil)
 }
 
-func initRoutes(data *Data) *echo.Echo {
+func initRoutes(ctx context.Context, data *Data) *echo.Echo {
 	e := echo.New()
 	e.Use(middleware.Logger())
 	promMdlw.Use(e)
@@ -83,9 +84,9 @@ func initRoutes(data *Data) *echo.Echo {
 	e.HEAD("/result/:id", download(data))
 	e.GET("/live", live(data))
 
-	goapp.Log.Info("Routes:")
+	log.Ctx(ctx).Info().Msg("Routes:")
 	for _, r := range e.Routes() {
-		goapp.Log.Infof("  %s %s", r.Method, r.Path)
+		log.Ctx(ctx).Info().Msgf("  %s %s", r.Method, r.Path)
 	}
 	return e
 }
@@ -108,16 +109,19 @@ func download(data *Data) func(echo.Context) error {
 		if err != nil {
 			return echo.NewHTTPError(http.StatusBadRequest, "No file by ID")
 		}
+
+		ctx := c.Request().Context()
+
 		file, err := data.Reader.Load(fileName)
 		if err != nil {
-			goapp.Log.Error(err)
+			log.Ctx(ctx).Err(err).Send()
 			return echo.NewHTTPError(http.StatusInternalServerError, "Can't get file")
 		}
 		defer file.Close()
 
 		fileInfo, err := file.Stat()
 		if err != nil {
-			goapp.Log.Error(err)
+			log.Ctx(ctx).Err(err).Send()
 			return echo.NewHTTPError(http.StatusInternalServerError, "Can't get file")
 		}
 

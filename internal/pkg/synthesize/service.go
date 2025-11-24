@@ -10,24 +10,24 @@ import (
 	"github.com/airenas/big-tts/internal/pkg/messages"
 	"github.com/airenas/big-tts/internal/pkg/status"
 	"github.com/airenas/big-tts/internal/pkg/utils"
-	"github.com/airenas/go-app/pkg/goapp"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 	"github.com/streadway/amqp"
 )
 
-//Worker wraps some work functionality
+// Worker wraps some work functionality
 type Worker interface {
 	Do(context.Context, *messages.TTSMessage) error
 }
 
-//MsgSender sends messages
+// MsgSender sends messages
 type MsgSender interface {
 	Send(msg amessages.Message, queue, replyQueue string) error
 }
 
-//StatusSaver persists data to DB
+// StatusSaver persists data to DB
 type StatusSaver interface {
-	Save(ID string, status, err string) error
+	Save(ctx context.Context, ID string, status, err string) error
 }
 
 // ServiceData keeps data required for service work
@@ -46,19 +46,19 @@ type ServiceData struct {
 	Joiner        Worker
 	UsageRestorer Worker
 
-	StopCtx context.Context
+	// StopCtx context.Context
 }
 
-//return true if it can be redelivered
-type prFunc func(msg *messages.TTSMessage, data *ServiceData) (bool, error)
+// return true if it can be redelivered
+type prFunc func(ctx context.Context, msg *messages.TTSMessage, data *ServiceData) (bool, error)
 
-//StartWorkerService starts the event queue listener service to listen for events
-//returns channel for tracking if all jobs are finished
+// StartWorkerService starts the event queue listener service to listen for events
+// returns channel for tracking if all jobs are finished
 func StartWorkerService(ctx context.Context, data *ServiceData) (<-chan struct{}, error) {
 	if err := validate(data); err != nil {
 		return nil, err
 	}
-	goapp.Log.Infof("Starting listen for messages")
+	log.Ctx(ctx).Info().Msgf("Starting listen for messages")
 
 	wg := &sync.WaitGroup{}
 
@@ -132,59 +132,58 @@ func listenQueue(ctx context.Context, q <-chan amqp.Delivery, f prFunc, data *Se
 	for {
 		select {
 		case <-ctx.Done():
-			goapp.Log.Infof("Exit queue func")
+			log.Ctx(ctx).Info().Msgf("Exit queue func")
 			return
 		case d, ok := <-q:
 			{
 				if !ok {
-					goapp.Log.Infof("Stopped listening queue")
+					log.Ctx(ctx).Info().Msgf("Stopped listening queue")
 					return
 				}
-				err := processMsg(&d, f, data)
+				err := processMsg(ctx, &d, f, data)
 				if err != nil {
-					goapp.Log.Error(err)
+					log.Ctx(ctx).Err(err).Send()
 				}
 			}
 		}
 	}
 }
 
-func processMsg(d *amqp.Delivery, f prFunc, data *ServiceData) error {
-	goapp.Log.Infof("Got msg: %s", d.RoutingKey)
+func processMsg(ctx context.Context, d *amqp.Delivery, f prFunc, data *ServiceData) error {
+	log.Ctx(ctx).Info().Msgf("Got msg: %s", d.RoutingKey)
 	var message messages.TTSMessage
 	if err := json.Unmarshal(d.Body, &message); err != nil {
 		_ = d.Nack(false, false)
 		return errors.Wrap(err, "can't unmarshal message "+string(d.Body))
 	}
-	redeliver, err := f(&message, data)
+	redeliver, err := f(ctx, &message, data)
 	if err != nil {
-		goapp.Log.Errorf("Can't process message %s\n%s", d.MessageId, string(d.Body))
-		goapp.Log.Error(err)
+		log.Ctx(ctx).Err(err).Send()
 		select {
-		case <-data.StopCtx.Done():
-			goapp.Log.Infof("Cancel msg process")
+		case <-ctx.Done():
+			log.Ctx(ctx).Info().Msgf("Cancel msg process")
 			return nil
 		default:
 		}
 		requeue := redeliver && !d.Redelivered
 		if !requeue {
-			errInt := data.StatusSaver.Save(message.ID, "", err.Error())
+			errInt := data.StatusSaver.Save(ctx, message.ID, "", err.Error())
 			if errInt != nil {
-				goapp.Log.Error(errInt)
+				log.Error().Err(errInt).Send()
 			}
 			errInt = data.InformMsgSender.Send(newInformMessage(&message, amessages.InformTypeFailed), messages.Inform, "")
 			if errInt != nil {
-				goapp.Log.Error(errInt)
+				log.Error().Err(errInt).Send()
 			}
 			if needToRestoreUsage(err) && d.RoutingKey != messages.Fail && message.Error == "" {
 				failMsg := messages.NewMessageFrom(&message)
 				failMsg.Error = err.Error()
 				err = data.MsgSender.Send(failMsg, messages.Fail, "")
 				if err != nil {
-					goapp.Log.Error(err)
+					log.Ctx(ctx).Err(err).Send()
 				}
 			} else {
-				goapp.Log.Info("NonRestorableError - do not send msg for restoring usage")
+				log.Ctx(ctx).Info().Msg("NonRestorableError - do not send msg for restoring usage")
 			}
 		}
 		return d.Nack(false, requeue) // redeliver for first time
@@ -197,14 +196,14 @@ func needToRestoreUsage(err error) bool {
 	return !errors.As(err, &errTest)
 }
 
-//synthesize starts the synthesize process
+// synthesize starts the synthesize process
 // workflow:
 // 1. set status to WORKING
 // 2. send inform msg
 // 3. Send split msg
-func listenUpload(message *messages.TTSMessage, data *ServiceData) (bool, error) {
-	goapp.Log.Infof("Got %s msg :%s", messages.Upload, message.ID)
-	err := data.StatusSaver.Save(message.ID, status.Uploaded.String(), "")
+func listenUpload(ctx context.Context, message *messages.TTSMessage, data *ServiceData) (bool, error) {
+	log.Ctx(ctx).Info().Msgf("Got %s msg :%s", messages.Upload, message.ID)
+	err := data.StatusSaver.Save(ctx, message.ID, status.Uploaded.String(), "")
 	if err != nil {
 		return true, err
 	}
@@ -215,54 +214,54 @@ func listenUpload(message *messages.TTSMessage, data *ServiceData) (bool, error)
 	return true, data.MsgSender.Send(messages.NewMessageFrom(message), messages.Split, "")
 }
 
-func split(message *messages.TTSMessage, data *ServiceData) (bool, error) {
-	goapp.Log.Infof("Got %s msg :%s", messages.Split, message.ID)
-	err := data.StatusSaver.Save(message.ID, status.Split.String(), "")
+func split(ctx context.Context, message *messages.TTSMessage, data *ServiceData) (bool, error) {
+	log.Ctx(ctx).Info().Msgf("Got %s msg :%s", messages.Split, message.ID)
+	err := data.StatusSaver.Save(ctx, message.ID, status.Split.String(), "")
 	if err != nil {
 		return true, err
 	}
 	resMsg := messages.NewMessageFrom(message)
-	err = data.Splitter.Do(data.StopCtx, message)
+	err = data.Splitter.Do(ctx, message)
 	if err != nil {
 		return true, err
 	}
 	return true, data.MsgSender.Send(resMsg, messages.Synthesize, "")
 }
 
-func synthesize(message *messages.TTSMessage, data *ServiceData) (bool, error) {
-	goapp.Log.Infof("Got %s msg :%s", messages.Synthesize, message.ID)
-	err := data.StatusSaver.Save(message.ID, status.Synthesize.String(), "")
+func synthesize(ctx context.Context, message *messages.TTSMessage, data *ServiceData) (bool, error) {
+	log.Ctx(ctx).Info().Msgf("Got %s msg :%s", messages.Synthesize, message.ID)
+	err := data.StatusSaver.Save(ctx, message.ID, status.Synthesize.String(), "")
 	if err != nil {
 		return true, err
 	}
 	resMsg := messages.NewMessageFrom(message)
-	err = data.Synthesizer.Do(data.StopCtx, message)
+	err = data.Synthesizer.Do(ctx, message)
 	if err != nil {
 		return true, err
 	}
 	return true, data.MsgSender.Send(resMsg, messages.Join, "")
 }
 
-func join(message *messages.TTSMessage, data *ServiceData) (bool, error) {
-	goapp.Log.Infof("Got %s msg :%s", messages.Join, message.ID)
-	err := data.StatusSaver.Save(message.ID, status.Join.String(), "")
+func join(ctx context.Context, message *messages.TTSMessage, data *ServiceData) (bool, error) {
+	log.Ctx(ctx).Info().Msgf("Got %s msg :%s", messages.Join, message.ID)
+	err := data.StatusSaver.Save(ctx, message.ID, status.Join.String(), "")
 	if err != nil {
 		return true, err
 	}
-	err = data.Joiner.Do(data.StopCtx, message)
+	err = data.Joiner.Do(ctx, message)
 	if err != nil {
 		return true, err
 	}
-	err = data.StatusSaver.Save(message.ID, status.Completed.String(), "")
+	err = data.StatusSaver.Save(ctx, message.ID, status.Completed.String(), "")
 	if err != nil {
 		return true, err
 	}
 	return true, data.InformMsgSender.Send(newInformMessage(message, amessages.InformTypeFinished), messages.Inform, "")
 }
 
-func restoreUsage(message *messages.TTSMessage, data *ServiceData) (bool, error) {
-	goapp.Log.Infof("Got %s msg :%s", messages.Fail, message.ID)
-	return true, data.UsageRestorer.Do(data.StopCtx, message)
+func restoreUsage(ctx context.Context, message *messages.TTSMessage, data *ServiceData) (bool, error) {
+	log.Ctx(ctx).Info().Msgf("Got %s msg :%s", messages.Fail, message.ID)
+	return true, data.UsageRestorer.Do(ctx, message)
 }
 
 func newInformMessage(msg *messages.TTSMessage, it string) *amessages.InformMessage {

@@ -19,10 +19,22 @@ import (
 	"github.com/airenas/go-app/pkg/goapp"
 	"github.com/labstack/gommon/color"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/streadway/amqp"
 )
 
 func main() {
+	goapp.StartWithDefault()
+	log.Logger = goapp.Log
+	zerolog.DefaultContextLogger = &goapp.Log
+
+	if err := mainInt(context.Background()); err != nil {
+		log.Fatal().Err(err).Send()
+	}
+}
+
+func mainInt(ctx context.Context) error {
 	goapp.StartWithDefault()
 
 	data := &synthesize.ServiceData{}
@@ -31,36 +43,36 @@ func main() {
 	msgChannelProvider, err := rabbit.NewChannelProvider(cfg.GetString("messageServer.url"),
 		cfg.GetString("messageServer.user"), cfg.GetString("messageServer.pass"))
 	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't init rabbitmq channel provider"))
+		return (errors.Wrap(err, "can't init rabbitmq channel provider"))
 	}
 	defer msgChannelProvider.Close()
-	err = initQueues(msgChannelProvider)
+	err = initQueues(ctx, msgChannelProvider)
 	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't init queues"))
+		return (errors.Wrap(err, "can't init queues"))
 	}
 
 	ch, err := msgChannelProvider.Channel()
 	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't open channel"))
+		return (errors.Wrap(err, "can't open channel"))
 	}
 	if err = ch.Qos(1, 0, false); err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't set Qos"))
+		return (errors.Wrap(err, "can't set Qos"))
 	}
 
 	if data.UploadCh, err = makeQChannel(ch, msgChannelProvider.QueueName(messages.Upload)); err != nil {
-		goapp.Log.Fatal(err)
+		return (errors.Wrap(err, "can't make upload channel"))
 	}
 	if data.SplitCh, err = makeQChannel(ch, msgChannelProvider.QueueName(messages.Split)); err != nil {
-		goapp.Log.Fatal(err)
+		return (errors.Wrap(err, "can't make split channel"))
 	}
 	if data.SynthesizeCh, err = makeQChannel(ch, msgChannelProvider.QueueName(messages.Synthesize)); err != nil {
-		goapp.Log.Fatal(err)
+		return (errors.Wrap(err, "can't make synthesize channel"))
 	}
 	if data.JoinCh, err = makeQChannel(ch, msgChannelProvider.QueueName(messages.Join)); err != nil {
-		goapp.Log.Fatal(err)
+		return (errors.Wrap(err, "can't make join channel"))
 	}
 	if data.RestoreUsageCh, err = makeQChannel(ch, msgChannelProvider.QueueName(messages.Fail)); err != nil {
-		goapp.Log.Fatal(err)
+		return (errors.Wrap(err, "can't make restore usage channel"))
 	}
 
 	data.MsgSender = rabbit.NewSender(msgChannelProvider)
@@ -68,66 +80,69 @@ func main() {
 
 	mongoSessionProvider, err := mng.NewSessionProvider(cfg.GetString("mongo.url"), mongo.GetIndexes(), "tts")
 	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't init mongo session provider"))
+		return (errors.Wrap(err, "can't init mongo session provider"))
 	}
 	defer mongoSessionProvider.Close()
 
 	data.StatusSaver, err = mongo.NewStatus(mongoSessionProvider)
 	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't init mongo status saver"))
+		return (errors.Wrap(err, "can't init mongo status saver"))
 	}
 	data.Splitter, err = splitter.NewWorker(cfg.GetString("splitter.inTemplate"),
 		cfg.GetString("splitter.outTemplate"))
 	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't init splitter"))
+		return (errors.Wrap(err, "can't init splitter"))
 	}
-	data.Synthesizer, err = synthesizer.NewWorker(cfg.GetString("splitter.outTemplate"),
+	data.Synthesizer, err = synthesizer.NewWorker(ctx,
+		cfg.GetString("splitter.outTemplate"),
 		cfg.GetString("synthesizer.outTemplate"),
 		cfg.GetString("synthesizer.URL"),
 		cfg.GetInt("synthesizer.workers"))
 	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't init synthesizer"))
+		return (errors.Wrap(err, "can't init synthesizer"))
 	}
 	data.UsageRestorer, err = usage.NewWorker(cfg.GetString("doorman.URL"), cfg.GetString("doorman.key"))
 	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't init usage restorer"))
+		return (errors.Wrap(err, "can't init usage restorer"))
 	}
 	data.Joiner, err = joiner.NewWorker(cfg.GetString("synthesizer.outTemplate"),
 		cfg.GetString("joiner.outTemplate"),
 		cfg.GetString("joiner.workTemplate"),
 		cfg.GetStringSlice("joiner.metadata"))
 	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't init joiner"))
+		return (errors.Wrap(err, "can't init joiner"))
 	}
 
 	printBanner()
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
-	data.StopCtx = ctx
+	defer cancelFunc()
+
 	doneCh, err := synthesize.StartWorkerService(ctx, data)
 	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't start worker service"))
+		return (errors.Wrap(err, "can't start worker service"))
 	}
 	/////////////////////// Waiting for terminate
 	waitCh := make(chan os.Signal, 2)
 	signal.Notify(waitCh, os.Interrupt, syscall.SIGTERM)
 	select {
 	case <-waitCh:
-		goapp.Log.Info("Got exit signal")
+		log.Ctx(ctx).Info().Msg("Got exit signal")
 	case <-doneCh:
-		goapp.Log.Info("Service exit")
+		log.Ctx(ctx).Info().Msg("Service exit")
 	}
 	cancelFunc()
 	select {
 	case <-doneCh:
-		goapp.Log.Info("All code returned. Now exit. Bye")
+		log.Ctx(ctx).Info().Msg("All code returned. Now exit. Bye")
 	case <-time.After(time.Second * 15):
-		goapp.Log.Warn("Timeout gracefull shutdown")
+		log.Ctx(ctx).Warn().Msg("Timeout graceful shutdown")
 	}
+	return nil
 }
 
-func initQueues(prv *rabbit.ChannelProvider) error {
-	goapp.Log.Info("Initializing queues")
+func initQueues(ctx context.Context, prv *rabbit.ChannelProvider) error {
+	log.Ctx(ctx).Info().Msg("Initializing queues")
 	for _, n := range [...]string{messages.Split, messages.Synthesize, messages.Upload, messages.Join,
 		messages.Inform, messages.Fail} {
 		err := prv.RunOnChannelWithRetry(func(ch *amqp.Channel) error {

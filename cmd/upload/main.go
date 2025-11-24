@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+
 	"github.com/airenas/async-api/pkg/file"
 	mng "github.com/airenas/async-api/pkg/mongo"
 	"github.com/airenas/async-api/pkg/rabbit"
@@ -10,11 +12,22 @@ import (
 	"github.com/airenas/go-app/pkg/goapp"
 	"github.com/labstack/gommon/color"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/streadway/amqp"
 )
 
 func main() {
 	goapp.StartWithDefault()
+	log.Logger = goapp.Log
+	zerolog.DefaultContextLogger = &goapp.Log
+
+	if err := mainInt(context.Background()); err != nil {
+		log.Fatal().Err(err).Send()
+	}
+}
+
+func mainInt(ctx context.Context) error {
 
 	printBanner()
 
@@ -22,49 +35,50 @@ func main() {
 	data := &upload.Data{}
 	data.Port = cfg.GetInt("port")
 	var err error
-	data.Configurator, err = upload.NewTTSConfigurator(cfg.GetString("synthesis.defaultFormat"),
+	data.Configurator, err = upload.NewTTSConfigurator(ctx, cfg.GetString("synthesis.defaultFormat"),
 		cfg.GetString("synthesis.defaultVoice"), cfg.GetStringSlice("synthesis.voices"))
 	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't init configuration"))
+		return (errors.Wrap(err, "can't init configuration"))
 	}
 
 	data.Saver, err = file.NewLocalSaver(cfg.GetString("fileStorage.path"))
 	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't init file saver"))
+		return (errors.Wrap(err, "can't init file saver"))
 	}
 
 	mongoSessionProvider, err := mng.NewSessionProvider(cfg.GetString("mongo.url"), mongo.GetIndexes(), "tts")
 	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't init mongo session provider"))
+		return (errors.Wrap(err, "can't init mongo session provider"))
 	}
 	defer mongoSessionProvider.Close()
 
 	data.ReqSaver, err = mongo.NewRequest(mongoSessionProvider)
 	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't init mongo request saver"))
+		return (errors.Wrap(err, "can't init mongo request saver"))
 	}
 
 	msgChannelProvider, err := rabbit.NewChannelProvider(cfg.GetString("messageServer.url"),
 		cfg.GetString("messageServer.user"), cfg.GetString("messageServer.pass"))
 	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't init rabbitmq channel provider"))
+		return (errors.Wrap(err, "can't init rabbitmq channel provider"))
 	}
 	defer msgChannelProvider.Close()
 	err = initQueues(msgChannelProvider)
 	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't init queues"))
+		return (errors.Wrap(err, "can't init queues"))
 	}
 
 	data.MsgSender = rabbit.NewSender(msgChannelProvider)
 
-	err = upload.StartWebServer(data)
+	err = upload.StartWebServer(ctx, data)
 	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't start web server"))
+		return (errors.Wrap(err, "can't start web server"))
 	}
+	return nil
 }
 
 func initQueues(prv *rabbit.ChannelProvider) error {
-	goapp.Log.Info("Initializing queues")
+	log.Info().Msg("Initializing queues")
 	return prv.RunOnChannelWithRetry(func(ch *amqp.Channel) error {
 		_, err := rabbit.DeclareQueue(ch, prv.QueueName(messages.Upload))
 		return err

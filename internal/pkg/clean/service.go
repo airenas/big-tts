@@ -1,24 +1,27 @@
 package clean
 
 import (
-	"log"
+	"context"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/facebookgo/grace/gracehttp"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 
 	"github.com/airenas/go-app/pkg/goapp"
+
+	slog "log"
 
 	"github.com/labstack/echo-contrib/prometheus"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
 
-//Cleaner is a wrapper for clean functionality
+// Cleaner is a wrapper for clean functionality
 type Cleaner interface {
-	Clean(ID string) error
+	Clean(ctx context.Context, ID string) error
 }
 
 // Data keeps data required for service work
@@ -27,9 +30,9 @@ type Data struct {
 	Cleaner Cleaner
 }
 
-//StartWebServer starts echo web service
-func StartWebServer(data *Data) error {
-	goapp.Log.Infof("Starting BIG TTS Clean service at %d", data.Port)
+// StartWebServer starts echo web service
+func StartWebServer(ctx context.Context, data *Data) error {
+	log.Ctx(ctx).Info().Msgf("Starting BIG TTS Clean service at %d", data.Port)
 
 	if err := validate(data); err != nil {
 		return err
@@ -37,16 +40,14 @@ func StartWebServer(data *Data) error {
 
 	portStr := strconv.Itoa(data.Port)
 
-	e := initRoutes(data)
+	e := initRoutes(ctx, data)
 
 	e.Server.Addr = ":" + portStr
 	e.Server.ReadHeaderTimeout = 5 * time.Second
 	e.Server.ReadTimeout = 5 * time.Second
 	e.Server.WriteTimeout = 30 * time.Second
 
-	w := goapp.Log.Writer()
-	defer w.Close()
-	gracehttp.SetLogger(log.New(w, "", 0))
+	gracehttp.SetLogger(slog.New(goapp.Log, "", 0))
 
 	return gracehttp.Serve(e.Server)
 }
@@ -64,7 +65,7 @@ func init() {
 	promMdlw = prometheus.NewPrometheus("tts_clean", nil)
 }
 
-func initRoutes(data *Data) *echo.Echo {
+func initRoutes(ctx context.Context, data *Data) *echo.Echo {
 	e := echo.New()
 	e.Use(middleware.Logger())
 	promMdlw.Use(e)
@@ -72,9 +73,9 @@ func initRoutes(data *Data) *echo.Echo {
 	e.DELETE("/delete/:id", delete(data.Cleaner))
 	e.GET("/live", live(data))
 
-	goapp.Log.Info("Routes:")
+	log.Ctx(ctx).Info().Msg("Routes:")
 	for _, r := range e.Routes() {
-		goapp.Log.Infof("  %s %s", r.Method, r.Path)
+		log.Ctx(ctx).Info().Msgf("  %s %s", r.Method, r.Path)
 	}
 	return e
 }
@@ -93,9 +94,10 @@ func delete(cleaner Cleaner) func(echo.Context) error {
 		if id == "" {
 			return echo.NewHTTPError(http.StatusBadRequest, "No ID")
 		}
-		err := cleaner.Clean(id)
+		ctx := c.Request().Context()
+		err := cleaner.Clean(ctx, id)
 		if err != nil {
-			goapp.Log.Error(err)
+			log.Ctx(ctx).Err(err).Send()
 			return echo.NewHTTPError(http.StatusInternalServerError, "Can't delete")
 		}
 		return c.String(http.StatusOK, "deleted")

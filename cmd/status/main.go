@@ -1,7 +1,11 @@
 package main
 
 import (
+	"context"
+
 	mng "github.com/airenas/async-api/pkg/mongo"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 
 	"github.com/airenas/big-tts/internal/pkg/mongo"
 	"github.com/airenas/big-tts/internal/pkg/statusservice"
@@ -12,6 +16,15 @@ import (
 
 func main() {
 	goapp.StartWithDefault()
+	log.Logger = goapp.Log
+	zerolog.DefaultContextLogger = &goapp.Log
+
+	if err := mainInt(context.Background()); err != nil {
+		log.Fatal().Err(err).Send()
+	}
+}
+
+func mainInt(ctx context.Context) error {
 	cfg := goapp.Config
 	data := &statusservice.Data{}
 	data.Port = cfg.GetInt("port")
@@ -19,21 +32,22 @@ func main() {
 
 	mongoSessionProvider, err := mng.NewSessionProvider(cfg.GetString("mongo.url"), mongo.GetIndexes(), "tts")
 	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't init mongo session provider"))
+		return (errors.Wrap(err, "can't init mongo session provider"))
 	}
 	defer mongoSessionProvider.Close()
 
 	data.StatusProvider, err = mongo.NewStatus(mongoSessionProvider)
 	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't init mongo request saver"))
+		return (errors.Wrap(err, "can't init mongo request saver"))
 	}
 
 	printBanner()
 
-	err = statusservice.StartWebServer(data)
+	err = statusservice.StartWebServer(ctx, data)
 	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't start web server"))
+		return (errors.Wrap(err, "can't start web server"))
 	}
+	return nil
 }
 
 var (

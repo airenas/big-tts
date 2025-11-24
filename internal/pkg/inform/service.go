@@ -7,9 +7,9 @@ import (
 
 	"github.com/airenas/async-api/pkg/inform"
 	"github.com/airenas/async-api/pkg/messages"
-	"github.com/airenas/go-app/pkg/goapp"
 	"github.com/jordan-wright/email"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 	"github.com/streadway/amqp"
 )
 
@@ -54,12 +54,12 @@ type ServiceData struct {
 // handle err
 // <-fc // waits for finish
 func StartWorkerService(ctx context.Context, data *ServiceData) (<-chan struct{}, error) {
-	goapp.Log.Infof("Starting listen for messages")
+	log.Ctx(ctx).Info().Msgf("Starting listen for messages")
 	if err := validate(data); err != nil {
 		return nil, err
 	}
 
-	ctxInt, cancelF := context.WithCancel(context.Background())
+	ctxInt, cancelF := context.WithCancel(ctx)
 	go listenQueue(ctx, data.WorkCh, data, cancelF)
 	return ctxInt.Done(), nil
 }
@@ -87,8 +87,8 @@ func validate(data *ServiceData) error {
 }
 
 // work is main method to send the message
-func work(data *ServiceData, message *messages.InformMessage) error {
-	goapp.Log.Infof("Got task %s for ID: %s", data.TaskName, message.ID)
+func work(ctx context.Context, data *ServiceData, message *messages.InformMessage) error {
+	log.Ctx(ctx).Info().Msgf("Got task %s for ID: %s", data.TaskName, message.ID)
 
 	mailData := inform.Data{}
 	mailData.ID = message.ID
@@ -98,31 +98,31 @@ func work(data *ServiceData, message *messages.InformMessage) error {
 	var err error
 	mailData.Email, err = data.EmailRetriever.GetEmail(message.ID)
 	if err != nil {
-		goapp.Log.Error(err)
+		log.Ctx(ctx).Error().Err(err).Send()
 		return errors.Wrap(err, "can't retrieve email")
 	}
 
 	email, err := data.EmailMaker.Make(&mailData)
 	if err != nil {
-		goapp.Log.Error(err)
+		log.Ctx(ctx).Err(err).Send()
 		return errors.Wrap(err, "can't prepare email")
 	}
 
 	err = data.Locker.Lock(mailData.ID, mailData.MsgType)
 	if err != nil {
-		goapp.Log.Error(err)
+		log.Ctx(ctx).Err(err).Send()
 		return errors.Wrap(err, "can't lock mail table")
 	}
 	var unlockValue = 0
 	defer func() {
 		if err := data.Locker.UnLock(mailData.ID, mailData.MsgType, &unlockValue); err != nil {
-			goapp.Log.Error(err)
+			log.Ctx(ctx).Err(err).Send()
 		}
 	}()
 
 	err = data.EmailSender.Send(email)
 	if err != nil {
-		goapp.Log.Error(err)
+		log.Ctx(ctx).Err(err).Send()
 		return errors.Wrap(err, "can't send email")
 	}
 	unlockValue = 2
@@ -134,17 +134,17 @@ func listenQueue(ctx context.Context, q <-chan amqp.Delivery, data *ServiceData,
 	for {
 		select {
 		case <-ctx.Done():
-			goapp.Log.Infof("Exit queue func")
+			log.Ctx(ctx).Info().Msgf("Exit queue func")
 			return
 		case d, ok := <-q:
 			{
 				if !ok {
-					goapp.Log.Infof("Stopped listening queue")
+					log.Ctx(ctx).Info().Msgf("Stopped listening queue")
 					return
 				}
 				err := processMsg(ctx, &d, data)
 				if err != nil {
-					goapp.Log.Error(err)
+					log.Ctx(ctx).Err(err).Send()
 				}
 			}
 		}
@@ -157,17 +157,16 @@ func processMsg(ctx context.Context, d *amqp.Delivery, data *ServiceData) error 
 		_ = d.Nack(false, false)
 		return errors.Wrap(err, "can't unmarshal message "+string(d.Body))
 	}
-	err := work(data, &message)
+	err := work(ctx, data, &message)
 	if err != nil {
-		goapp.Log.Errorf("can't process message %s\n%s", d.MessageId, string(d.Body))
-		goapp.Log.Error(err)
+		log.Ctx(ctx).Err(err).Send()
 		select {
 		case <-ctx.Done():
-			goapp.Log.Infof("Cancel msg process")
+			log.Ctx(ctx).Info().Msgf("Cancel msg process")
 			return nil
 		default:
 		}
-		return d.Nack(false, !d.Redelivered) // redeliver for first time
+		return d.Nack(false, !d.Redelivered) // redeliver for the first time
 	}
 	return d.Ack(false)
 }

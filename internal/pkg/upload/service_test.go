@@ -2,6 +2,7 @@ package upload
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -36,8 +37,8 @@ func initTest(t *testing.T) {
 	tData.Saver = saverMock
 	tData.ReqSaver = rSaverMock
 	tData.MsgSender = senderMock
-	tData.Configurator, _ = NewTTSConfigurator("mp3", "astra", []string{"vyt"})
-	tEcho = initRoutes(tData)
+	tData.Configurator, _ = NewTTSConfigurator(t.Context(), "mp3", "astra", []string{"vyt"})
+	tEcho = initRoutes(t.Context(), tData)
 	tResp = httptest.NewRecorder()
 }
 
@@ -106,7 +107,7 @@ func Test_Fails_Saver(t *testing.T) {
 func Test_Fails_ReqSaver(t *testing.T) {
 	initTest(t)
 	req := newTestRequest("file", "file.txt", "olia", nil)
-	pegomock.When(rSaverMock.Save(pegomock.Any[*persistence.ReqData]())).ThenReturn(errors.New("err"))
+	pegomock.When(rSaverMock.Save(pegomock.Any[context.Context](), pegomock.Any[*persistence.ReqData]())).ThenReturn(errors.New("err"))
 
 	testCode(t, req, http.StatusInternalServerError)
 }

@@ -18,21 +18,21 @@ import (
 )
 
 func TestNewWorker(t *testing.T) {
-	got, err := NewWorker("{}.txt", "new{}.txt", "url", 1)
+	got, err := NewWorker(t.Context(), "{}.txt", "new{}.txt", "url", 1)
 	assert.Nil(t, err)
 	assert.NotNil(t, got)
-	_, err = NewWorker(".txt", "new{}.txt", "url", 1)
+	_, err = NewWorker(t.Context(), ".txt", "new{}.txt", "url", 1)
 	assert.NotNil(t, err)
-	_, err = NewWorker("{}.txt", "new.txt", "url", 1)
+	_, err = NewWorker(t.Context(), "{}.txt", "new.txt", "url", 1)
 	assert.NotNil(t, err)
-	_, err = NewWorker("{}.txt", "new{}.txt", "", 1)
+	_, err = NewWorker(t.Context(), "{}.txt", "new{}.txt", "", 1)
 	assert.NotNil(t, err)
-	_, err = NewWorker("{}.txt", "new{}.txt", "url", 0)
+	_, err = NewWorker(t.Context(), "{}.txt", "new{}.txt", "url", 0)
 	assert.NotNil(t, err)
 }
 
 func TestWorker_Do(t *testing.T) {
-	got, err := NewWorker("in/{}", "new/{}/", "url", 1)
+	got, err := NewWorker(t.Context(), "in/{}", "new/{}/", "url", 1)
 	assert.Nil(t, err)
 	files := 0
 	got.existsFunc = func(s string) bool {
@@ -59,7 +59,7 @@ func TestWorker_Do(t *testing.T) {
 		assert.Equal(t, "olia", s)
 		return []byte("done"), nil
 	}
-	got.saveFunc = func(s string, b []byte) error {
+	got.saveFunc = func(ctx context.Context, s string, b []byte) error {
 		assert.Equal(t, "new/id1/0000.mp3", s)
 		assert.Equal(t, "done", string(b))
 		return nil
@@ -69,7 +69,7 @@ func TestWorker_Do(t *testing.T) {
 }
 
 func TestWorker_Do_Exists_Skip(t *testing.T) {
-	got, err := NewWorker("in/{}", "new/{}/", "url", 1)
+	got, err := NewWorker(t.Context(), "in/{}", "new/{}/", "url", 1)
 	assert.Nil(t, err)
 	files := 0
 	got.existsFunc = func(s string) bool {
@@ -95,7 +95,7 @@ func TestWorker_Do_Exists_Skip(t *testing.T) {
 		t.Error("not expected")
 		return nil, nil
 	}
-	got.saveFunc = func(s string, b []byte) error {
+	got.saveFunc = func(ctx context.Context, s string, b []byte) error {
 		t.Error("not expected")
 		return nil
 	}
@@ -104,7 +104,7 @@ func TestWorker_Do_Exists_Skip(t *testing.T) {
 }
 
 func TestWorker_Do_Fail_Invoke(t *testing.T) {
-	got, err := NewWorker("in/{}", "new/{}/", "url", 1)
+	got, err := NewWorker(t.Context(), "in/{}", "new/{}/", "url", 1)
 	assert.Nil(t, err)
 	files := 0
 	got.existsFunc = func(s string) bool {
@@ -121,7 +121,7 @@ func TestWorker_Do_Fail_Invoke(t *testing.T) {
 		t.Error("not expected")
 		return nil, nil
 	}
-	got.saveFunc = func(s string, b []byte) error {
+	got.saveFunc = func(ctx context.Context, s string, b []byte) error {
 		t.Error("not expected")
 		return nil
 	}
@@ -130,7 +130,7 @@ func TestWorker_Do_Fail_Invoke(t *testing.T) {
 }
 
 func TestWorker_Do_Fail_Calc(t *testing.T) {
-	got, err := NewWorker("in/{}", "new/{}/", "url", 1)
+	got, err := NewWorker(t.Context(), "in/{}", "new/{}/", "url", 1)
 	assert.Nil(t, err)
 	files := 0
 	got.existsFunc = func(s string) bool {
@@ -146,7 +146,7 @@ func TestWorker_Do_Fail_Calc(t *testing.T) {
 	got.callFunc = func(s string, tm *messages.TTSMessage) ([]byte, error) {
 		return nil, errors.New("err")
 	}
-	got.saveFunc = func(s string, b []byte) error {
+	got.saveFunc = func(ctx context.Context, s string, b []byte) error {
 		t.Error("not expected")
 		return nil
 	}
@@ -155,7 +155,7 @@ func TestWorker_Do_Fail_Calc(t *testing.T) {
 }
 
 func TestWorker_Do_Exit_OnCancel(t *testing.T) {
-	got, err := NewWorker("in/{}", "new/{}/", "url", 1)
+	got, err := NewWorker(t.Context(), "in/{}", "new/{}/", "url", 1)
 	assert.Nil(t, err)
 	files := 0
 	got.existsFunc = func(s string) bool {
@@ -178,7 +178,7 @@ func TestWorker_Do_Exit_OnCancel(t *testing.T) {
 }
 
 func TestWorker_Do_Exit_OnFailure(t *testing.T) {
-	got, err := NewWorker("in/{}", "new/{}/", "url", 10)
+	got, err := NewWorker(t.Context(), "in/{}", "new/{}/", "url", 10)
 	assert.Nil(t, err)
 	got.existsFunc = func(s string) bool {
 		return strings.HasSuffix(s, ".txt")
@@ -199,7 +199,7 @@ func TestWorker_Do_Exit_OnFailure(t *testing.T) {
 		}
 		return nil, tErr
 	}
-	err = got.Do(context.Background(), &messages.TTSMessage{QueueMessage: amessages.QueueMessage{ID: "id1"}, OutputFormat: "mp3"})
+	err = got.Do(t.Context(), &messages.TTSMessage{QueueMessage: amessages.QueueMessage{ID: "id1"}, OutputFormat: "mp3"})
 	assert.Equal(t, tErr, err)
 	assert.Equal(t, int64(10), tCnt)
 }
@@ -213,7 +213,7 @@ func TestWorker_Do_WithRealInvoke(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	got, err := NewWorker("in/{}", "new/{}/", srv.URL, 1)
+	got, err := NewWorker(t.Context(), "in/{}", "new/{}/", srv.URL, 1)
 	assert.Nil(t, err)
 	files := 0
 	got.existsFunc = func(s string) bool {
@@ -226,7 +226,7 @@ func TestWorker_Do_WithRealInvoke(t *testing.T) {
 	got.loadFunc = func(s string) ([]byte, error) {
 		return []byte("in"), nil
 	}
-	got.saveFunc = func(s string, b []byte) error {
+	got.saveFunc = func(ctx context.Context, s string, b []byte) error {
 		assert.Equal(t, "audio data", string(b))
 		return nil
 	}

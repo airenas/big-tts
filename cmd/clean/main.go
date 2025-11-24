@@ -7,6 +7,8 @@ import (
 	aclean "github.com/airenas/async-api/pkg/clean"
 	afile "github.com/airenas/async-api/pkg/file"
 	amongo "github.com/airenas/async-api/pkg/mongo"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 
 	"github.com/airenas/big-tts/internal/pkg/clean"
@@ -18,6 +20,16 @@ import (
 
 func main() {
 	goapp.StartWithDefault()
+	log.Logger = goapp.Log
+	zerolog.DefaultContextLogger = &goapp.Log
+
+	if err := mainInt(context.Background()); err != nil {
+		log.Fatal().Err(err).Send()
+	}
+}
+
+func mainInt(ctx context.Context) error {
+	goapp.StartWithDefault()
 	cfg := goapp.Config
 	data := &clean.Data{}
 	data.Port = cfg.GetInt("port")
@@ -28,36 +40,36 @@ func main() {
 	tData.RunEvery = cfg.GetDuration("timer.runEvery")
 
 	typ := cfg.GetString("type")
-	goapp.Log.Infof("Cleaner type '%s'", typ)
+	log.Ctx(ctx).Info().Msgf("Cleaner type '%s'", typ)
 	if typ == "db" {
 		mongoSessionProvider, err := amongo.NewSessionProvider(cfg.GetString("mongo.url"), mongo.GetIndexes(), "tts")
 		if err != nil {
-			goapp.Log.Fatal(errors.Wrap(err, "can't init mongo session provider"))
+			return (errors.Wrap(err, "can't init mongo session provider"))
 		}
 		defer mongoSessionProvider.Close()
 		cls, err := getDbCleaners(mongoSessionProvider)
 		if err != nil {
-			goapp.Log.Fatal(errors.Wrap(err, "can't init mongo table cleaners"))
+			return (errors.Wrap(err, "can't init mongo table cleaners"))
 		}
 		for _, cl := range cls {
 			cleaner.Jobs = append(cleaner.Jobs, cl)
 		}
 		tData.IDsProvider, err = amongo.NewCleanIDsProvider(mongoSessionProvider, cfg.GetDuration("timer.expire"), mongo.RequestTable)
 		if err != nil {
-			goapp.Log.Fatal(errors.Wrap(err, "can't init IDs provider"))
+			return (errors.Wrap(err, "can't init IDs provider"))
 		}
 	} else if typ == "dir" {
 		tData.IDsProvider, err = afile.NewOldDirProvider(cfg.GetDuration("timer.expire"), cfg.GetString("fileStorage.path"))
 		if err != nil {
-			goapp.Log.Fatal(errors.Wrap(err, "can't init IDs provider"))
+			return (errors.Wrap(err, "can't init IDs provider"))
 		}
 	} else {
-		goapp.Log.Fatalf("unknown or no cleaner type '%s'", typ)
+		return errors.Errorf("unknown or no cleaner type '%s'", typ)
 	}
 
 	cls, err := getFileCleaners(cfg)
 	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't init file cleaners"))
+		return errors.Wrap(err, "can't init file cleaners")
 	}
 	for _, cl := range cls {
 		cleaner.Jobs = append(cleaner.Jobs, cl)
@@ -68,24 +80,26 @@ func main() {
 	printBanner()
 
 	tData.Cleaner = cleaner
-	goapp.Log.Infof("Expire duration %s", cfg.GetDuration("timer.expire"))
+	log.Ctx(ctx).Info().Msgf("Expire duration %s", cfg.GetDuration("timer.expire"))
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
 	doneCh, err := aclean.StartCleanTimer(ctx, &tData)
 	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't start timer"))
+		return errors.Wrap(err, "can't start timer")
 	}
-	err = clean.StartWebServer(data)
+	err = clean.StartWebServer(ctx, data)
 	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't start web server"))
+		return errors.Wrap(err, "can't start web server")
 	}
 	cancelFunc()
 	select {
 	case <-doneCh:
-		goapp.Log.Info("All code returned. Now exit. Bye")
+		log.Ctx(ctx).Info().Msg("All code returned. Now exit. Bye")
 	case <-time.After(time.Second * 15):
-		goapp.Log.Warn("Timeout gracefull shutdown")
+		log.Ctx(ctx).Warn().Msg("Timeout graceful shutdown")
 	}
+	return nil
 }
 
 func getDbCleaners(msp *amongo.SessionProvider) ([]clean.Cleaner, error) {

@@ -1,9 +1,11 @@
 package mongo
 
 import (
+	"context"
+
 	mng "github.com/airenas/async-api/pkg/mongo"
 	"github.com/airenas/big-tts/internal/pkg/persistence"
-	"github.com/airenas/go-app/pkg/goapp"
+	"github.com/rs/zerolog/log"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -14,15 +16,15 @@ type Status struct {
 	SessionProvider *mng.SessionProvider
 }
 
-//NewStatus creates Status instance
+// NewStatus creates Status instance
 func NewStatus(sessionProvider *mng.SessionProvider) (*Status, error) {
 	f := Status{SessionProvider: sessionProvider}
 	return &f, nil
 }
 
 // Save saves status to DB
-func (ss *Status) Save(ID string, st, errStr string) error {
-	goapp.Log.Infof("Saving status %s: %s", ID, st)
+func (ss *Status) Save(ctx context.Context, ID string, st, errStr string) error {
+	log.Ctx(ctx).Info().Msgf("Saving status %s: %s", ID, st)
 
 	c, ctx, cancel, err := mng.NewCollection(ss.SessionProvider, statusTable)
 	if err != nil {
@@ -46,8 +48,8 @@ func (ss *Status) Save(ID string, st, errStr string) error {
 }
 
 // Get retrieves status from DB
-func (ss *Status) Get(id string) (*persistence.Status, error) {
-	goapp.Log.Infof("Retrieving status %s", mng.Sanitize(id))
+func (ss *Status) Get(ctx context.Context, id string) (*persistence.Status, error) {
+	log.Ctx(ctx).Info().Msgf("Retrieving status %s", mng.Sanitize(id))
 
 	c, ctx, cancel, err := mng.NewCollection(ss.SessionProvider, statusTable)
 	if err != nil {

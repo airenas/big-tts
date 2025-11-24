@@ -1,17 +1,31 @@
 package main
 
 import (
+	"context"
+
 	mng "github.com/airenas/async-api/pkg/mongo"
+	"github.com/rs/zerolog"
 
 	"github.com/airenas/async-api/pkg/file"
-	"github.com/airenas/big-tts/internal/pkg/result"
 	"github.com/airenas/big-tts/internal/pkg/mongo"
+	"github.com/airenas/big-tts/internal/pkg/result"
 	"github.com/airenas/go-app/pkg/goapp"
 	"github.com/labstack/gommon/color"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 )
 
 func main() {
+	goapp.StartWithDefault()
+	log.Logger = goapp.Log
+	zerolog.DefaultContextLogger = &goapp.Log
+
+	if err := mainInt(context.Background()); err != nil {
+		log.Fatal().Err(err).Send()
+	}
+}
+
+func mainInt(ctx context.Context) error {
 	goapp.StartWithDefault()
 	cfg := goapp.Config
 	data := &result.Data{}
@@ -20,26 +34,27 @@ func main() {
 
 	data.Reader, err = file.NewLocalLoader(cfg.GetString("fileStorage.path"))
 	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't init file storage reader"))
+		return (errors.Wrap(err, "can't init file storage reader"))
 	}
 
 	mongoSessionProvider, err := mng.NewSessionProvider(cfg.GetString("mongo.url"), mongo.GetIndexes(), "tts")
 	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't init mongo session provider"))
+		return (errors.Wrap(err, "can't init mongo session provider"))
 	}
 	defer mongoSessionProvider.Close()
 
 	data.NameProvider, err = mongo.NewRequest(mongoSessionProvider)
 	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't init mongo request saver"))
+		return (errors.Wrap(err, "can't init mongo request saver"))
 	}
 
 	printBanner()
 
-	err = result.StartWebServer(data)
+	err = result.StartWebServer(ctx, data)
 	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't start web server"))
+		return (errors.Wrap(err, "can't start web server"))
 	}
+	return nil
 }
 
 var (

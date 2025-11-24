@@ -13,6 +13,7 @@ import (
 	"github.com/airenas/big-tts/internal/pkg/messages"
 	"github.com/airenas/go-app/pkg/goapp"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 )
 
 // Worker implements usage restore functionality
@@ -35,15 +36,15 @@ func NewWorker(url, key string) (*Worker, error) {
 		MaxConnsPerHost:     10,
 	}}
 
-	goapp.Log.Infof("Doorman-admin URL: %s", res.serviceURL)
+	log.Info().Msgf("Doorman-admin URL: %s", res.serviceURL)
 	return res, nil
 }
 
 // Do tries to restore usage
 func (w *Worker) Do(ctx context.Context, msg *messages.TTSMessage) error {
-	goapp.Log.Infof("Doing usage restoratioon for %s. requestID: %s", msg.ID, msg.RequestID)
+	log.Ctx(ctx).Info().Msgf("Doing usage restoratioon for %s. requestID: %s", msg.ID, msg.RequestID)
 	if msg.RequestID == "" {
-		goapp.Log.Warn("no requestID")
+		log.Ctx(ctx).Warn().Msg("no requestID")
 		return nil
 	}
 	service, rID, err := parse(msg.RequestID)
@@ -84,7 +85,7 @@ func (w *Worker) invoke(service, requestID, errorMsg string) error {
 	defer cancelF()
 	req = req.WithContext(ctx)
 
-	goapp.Log.Infof("Call: %s", goapp.Sanitize(req.URL.String()))
+	log.Ctx(ctx).Info().Msgf("Call: %s", goapp.Sanitize(req.URL.String()))
 	resp, err := w.httpClient.Do(req)
 
 	if err != nil {

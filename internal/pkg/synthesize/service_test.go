@@ -59,7 +59,6 @@ func initTest(t *testing.T) {
 		InformMsgSender: tInfSender, StatusSaver: tStatusMock, Splitter: tSplitWrk,
 		Synthesizer: tSynthesizeWrk, Joiner: tJoinWrk,
 		RestoreUsageCh: tRestoreCh, UsageRestorer: tRestoreWrk}
-	tData.StopCtx = tCtx
 }
 
 func Test_Exits(t *testing.T) {
@@ -100,7 +99,7 @@ func Test_UploadMsg(t *testing.T) {
 	close(tUploadCh)
 	waitT(t, ch)
 
-	tStatusMock.VerifyWasCalledOnce().Save(pegomock.Any[string](), pegomock.Any[string](), pegomock.Any[string]())
+	tStatusMock.VerifyWasCalledOnce().Save(pegomock.Any[context.Context](), pegomock.Any[string](), pegomock.Any[string](), pegomock.Any[string]())
 	tMsgSender.VerifyWasCalledOnce().Send(pegomock.Any[amessages.Message](), pegomock.Any[string](), pegomock.Any[string]())
 	tInfSender.VerifyWasCalledOnce().Send(pegomock.Any[amessages.Message](), pegomock.Any[string](), pegomock.Any[string]())
 }
@@ -109,7 +108,7 @@ func Test_UploadMsg_FailSave(t *testing.T) {
 	initTest(t)
 	ch, err := StartWorkerService(tCtx, tData)
 	require.Nil(t, err)
-	pegomock.When(tStatusMock.Save(pegomock.Any[string](), pegomock.Any[string](), pegomock.Any[string]())).ThenReturn(errors.New("err"))
+	pegomock.When(tStatusMock.Save(pegomock.Any[context.Context](), pegomock.Any[string](), pegomock.Any[string](), pegomock.Any[string]())).ThenReturn(errors.New("err"))
 
 	msg := messages.TTSMessage{QueueMessage: amessages.QueueMessage{ID: "olia"}, Voice: "aa"}
 	msgdata, _ := json.Marshal(msg)
@@ -117,7 +116,7 @@ func Test_UploadMsg_FailSave(t *testing.T) {
 	close(tUploadCh)
 	waitT(t, ch)
 
-	tStatusMock.VerifyWasCalledOnce().Save(pegomock.Any[string](), pegomock.Any[string](), pegomock.Any[string]())
+	tStatusMock.VerifyWasCalledOnce().Save(pegomock.Any[context.Context](), pegomock.Any[string](), pegomock.Any[string](), pegomock.Any[string]())
 	tMsgSender.VerifyWasCalled(pegomock.Never()).Send(pegomock.Any[amessages.Message](), pegomock.Any[string](), pegomock.Any[string]())
 	tInfSender.VerifyWasCalled(pegomock.Never()).Send(pegomock.Any[amessages.Message](), pegomock.Any[string](), pegomock.Any[string]())
 }
@@ -126,7 +125,7 @@ func Test_UploadMsg_FailSave_Redelivered(t *testing.T) {
 	initTest(t)
 	ch, err := StartWorkerService(tCtx, tData)
 	require.Nil(t, err)
-	pegomock.When(tStatusMock.Save(pegomock.Any[string](), pegomock.Any[string](), pegomock.Any[string]())).ThenReturn(errors.New("err"))
+	pegomock.When(tStatusMock.Save(pegomock.Any[context.Context](), pegomock.Any[string](), pegomock.Any[string](), pegomock.Any[string]())).ThenReturn(errors.New("err"))
 
 	msg := messages.TTSMessage{QueueMessage: amessages.QueueMessage{ID: "olia"}, Voice: "aa", RequestID: "rID"}
 	msgdata, _ := json.Marshal(msg)
@@ -134,7 +133,7 @@ func Test_UploadMsg_FailSave_Redelivered(t *testing.T) {
 	close(tUploadCh)
 	waitT(t, ch)
 
-	tStatusMock.VerifyWasCalled(pegomock.Twice()).Save(pegomock.Any[string](), pegomock.Any[string](), pegomock.Any[string]())
+	tStatusMock.VerifyWasCalled(pegomock.Twice()).Save(pegomock.Any[context.Context](), pegomock.Any[string](), pegomock.Any[string](), pegomock.Any[string]())
 	fMsg, fQueue, _ := tMsgSender.VerifyWasCalled(pegomock.Once()).Send(pegomock.Any[amessages.Message](), pegomock.Any[string](), pegomock.Any[string]()).
 		GetCapturedArguments()
 	assert.Equal(t, messages.Fail, fQueue)
@@ -149,7 +148,7 @@ func Test_UploadMsg_SendRestore(t *testing.T) {
 	initTest(t)
 	ch, err := StartWorkerService(tCtx, tData)
 	require.Nil(t, err)
-	pegomock.When(tStatusMock.Save(pegomock.Any[string](), pegomock.Any[string](), pegomock.Any[string]())).ThenReturn(errors.New("err"))
+	pegomock.When(tStatusMock.Save(pegomock.Any[context.Context](), pegomock.Any[string](), pegomock.Any[string](), pegomock.Any[string]())).ThenReturn(errors.New("err"))
 
 	msg := messages.TTSMessage{QueueMessage: amessages.QueueMessage{ID: "olia"}, Voice: "aa", RequestID: "rID"}
 	msgdata, _ := json.Marshal(msg)
@@ -168,7 +167,7 @@ func Test_UploadMsg_Restore_Skip(t *testing.T) {
 	initTest(t)
 	ch, err := StartWorkerService(tCtx, tData)
 	require.Nil(t, err)
-	pegomock.When(tStatusMock.Save(pegomock.Any[string](), pegomock.Any[string](), pegomock.Any[string]())).
+	pegomock.When(tStatusMock.Save(pegomock.Any[context.Context](), pegomock.Any[string](), pegomock.Any[string](), pegomock.Any[string]())).
 		ThenReturn(utils.NewErrNonRestorableUsage(errors.New("err")))
 
 	msg := messages.TTSMessage{QueueMessage: amessages.QueueMessage{ID: "olia"}, Voice: "aa", RequestID: "rID"}
@@ -184,7 +183,7 @@ func Test_UploadMsg_Restore_SkipRoutingKey(t *testing.T) {
 	initTest(t)
 	ch, err := StartWorkerService(tCtx, tData)
 	require.Nil(t, err)
-	pegomock.When(tStatusMock.Save(pegomock.Any[string](), pegomock.Any[string](), pegomock.Any[string]())).
+	pegomock.When(tStatusMock.Save(pegomock.Any[context.Context](), pegomock.Any[string](), pegomock.Any[string](), pegomock.Any[string]())).
 		ThenReturn(errors.New("err"))
 
 	msg := messages.TTSMessage{QueueMessage: amessages.QueueMessage{ID: "olia"}, Voice: "aa", RequestID: "rID"}
@@ -208,7 +207,7 @@ func Test_SplitMsg(t *testing.T) {
 	close(tSplitCh)
 	waitT(t, ch)
 
-	tStatusMock.VerifyWasCalledOnce().Save(pegomock.Any[string](), pegomock.Any[string](), pegomock.Any[string]())
+	tStatusMock.VerifyWasCalledOnce().Save(pegomock.Any[context.Context](), pegomock.Any[string](), pegomock.Any[string](), pegomock.Any[string]())
 	tMsgSender.VerifyWasCalledOnce().Send(pegomock.Any[amessages.Message](), pegomock.Any[string](), pegomock.Any[string]())
 	tSplitWrk.VerifyWasCalledOnce().Do(pegomock.Any[context.Context](), pegomock.Any[*messages.TTSMessage]())
 }
@@ -226,7 +225,7 @@ func Test_SplitMsg_Fail(t *testing.T) {
 	close(tSplitCh)
 	waitT(t, ch)
 
-	tStatusMock.VerifyWasCalledOnce().Save(pegomock.Any[string](), pegomock.Any[string](), pegomock.Any[string]())
+	tStatusMock.VerifyWasCalledOnce().Save(pegomock.Any[context.Context](), pegomock.Any[string](), pegomock.Any[string](), pegomock.Any[string]())
 	tMsgSender.VerifyWasCalled(pegomock.Never()).Send(pegomock.Any[amessages.Message](), pegomock.Any[string](), pegomock.Any[string]())
 }
 
@@ -242,7 +241,7 @@ func Test_SynthesizeMsg(t *testing.T) {
 	close(tSynthesizeCh)
 	waitT(t, ch)
 
-	tStatusMock.VerifyWasCalledOnce().Save(pegomock.Any[string](), pegomock.Any[string](), pegomock.Any[string]())
+	tStatusMock.VerifyWasCalledOnce().Save(pegomock.Any[context.Context](), pegomock.Any[string](), pegomock.Any[string](), pegomock.Any[string]())
 	tMsgSender.VerifyWasCalledOnce().Send(pegomock.Any[amessages.Message](), pegomock.Any[string](), pegomock.Any[string]())
 	tSynthesizeWrk.VerifyWasCalledOnce().Do(pegomock.Any[context.Context](), pegomock.Any[*messages.TTSMessage]())
 }
@@ -259,7 +258,7 @@ func Test_JoinMsg(t *testing.T) {
 	close(tJoinCh)
 	waitT(t, ch)
 
-	tStatusMock.VerifyWasCalled(pegomock.Twice()).Save(pegomock.Any[string](), pegomock.Any[string](), pegomock.Any[string]())
+	tStatusMock.VerifyWasCalled(pegomock.Twice()).Save(pegomock.Any[context.Context](), pegomock.Any[string](), pegomock.Any[string](), pegomock.Any[string]())
 	tInfSender.VerifyWasCalledOnce().Send(pegomock.Any[amessages.Message](), pegomock.Any[string](), pegomock.Any[string]())
 	tJoinWrk.VerifyWasCalledOnce().Do(pegomock.Any[context.Context](), pegomock.Any[*messages.TTSMessage]())
 }

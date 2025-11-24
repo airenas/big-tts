@@ -54,7 +54,7 @@ func initTest(t *testing.T) {
 	tData = &Data{}
 	tData.Reader = readerMock
 	tData.NameProvider = nProviderMock
-	tEcho = initRoutes(tData)
+	tEcho = initRoutes(t.Context(), tData)
 	tResp = httptest.NewRecorder()
 }
 

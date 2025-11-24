@@ -1,6 +1,7 @@
 package clean
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -46,7 +47,7 @@ func initTest(t *testing.T) {
 	cleanMock = mocks.NewMockCleaner()
 	tData = &Data{}
 	tData.Cleaner = cleanMock
-	tEcho = initRoutes(tData)
+	tEcho = initRoutes(t.Context(), tData)
 	tResp = httptest.NewRecorder()
 }
 
@@ -65,7 +66,7 @@ func TestWrongMethod(t *testing.T) {
 func Test_Delete(t *testing.T) {
 	initTest(t)
 
-	pegomock.When(cleanMock.Clean(pegomock.Any[string]())).ThenReturn(nil)
+	pegomock.When(cleanMock.Clean(pegomock.Any[context.Context](), pegomock.Any[string]())).ThenReturn(nil)
 	req := httptest.NewRequest(http.MethodDelete, "/delete/1", nil)
 	resp := testCode(t, req, 200)
 	bytes, _ := io.ReadAll(resp.Body)
@@ -81,7 +82,7 @@ func Test_404(t *testing.T) {
 func Test_Fails_Clean(t *testing.T) {
 	initTest(t)
 	req := httptest.NewRequest(http.MethodDelete, "/delete/1", nil)
-	pegomock.When(cleanMock.Clean(pegomock.Any[string]())).ThenReturn(errors.New("err"))
+	pegomock.When(cleanMock.Clean(pegomock.Any[context.Context](), pegomock.Any[string]())).ThenReturn(errors.New("err"))
 	testCode(t, req, http.StatusInternalServerError)
 }
 func Test_Live(t *testing.T) {

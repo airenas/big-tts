@@ -12,9 +12,9 @@ import (
 
 	"github.com/airenas/big-tts/internal/pkg/messages"
 	"github.com/airenas/big-tts/internal/pkg/utils"
-	"github.com/airenas/go-app/pkg/goapp"
 	"github.com/airenas/tts-line/pkg/ssml"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 )
 
 // Worker for implementing text split
@@ -23,7 +23,7 @@ type Worker struct {
 	savePath string
 
 	loadFunc      func(string) ([]byte, error)
-	saveFunc      func(string, []byte) error
+	saveFunc      func(context.Context, string, []byte) error
 	createDirFunc func(string) error
 	wantedChars   int
 }
@@ -46,7 +46,7 @@ func NewWorker(loadPath string, savePath string) (*Worker, error) {
 
 // Do main worker's method
 func (w *Worker) Do(ctx context.Context, msg *messages.TTSMessage) error {
-	goapp.Log.Infof("Doing split job for %s", msg.ID)
+	log.Ctx(ctx).Info().Msgf("Doing split job for %s", msg.ID)
 	text, err := w.load(msg.ID)
 	if err != nil {
 		return errors.Wrapf(err, "can't load text")
@@ -55,7 +55,7 @@ func (w *Worker) Do(ctx context.Context, msg *messages.TTSMessage) error {
 	if err != nil {
 		return errors.Wrapf(err, "can't split text")
 	}
-	err = w.save(msg.ID, texts)
+	err = w.save(ctx, msg.ID, texts)
 	if err != nil {
 		return errors.Wrapf(err, "can't save texts")
 	}
@@ -79,7 +79,9 @@ func (w *Worker) split(text string, voice string, speed float64) ([]string, erro
 }
 
 func (w *Worker) doSSML(text string, voice string, speed float64) ([]string, error) {
-	parts, err := ssml.Parse(strings.NewReader(text), &ssml.Text{Voice: voice, Speed: float32(speed)},
+	//todo speed
+	parts, err := ssml.Parse(strings.NewReader(text), &ssml.Text{Voice: voice}, // Speed: float32(speed)
+
 		func(s string) (string, error) { return s, nil })
 	if err != nil {
 		return nil, fmt.Errorf("can't parse: %v", err)
@@ -106,13 +108,14 @@ func (w *Worker) doSSML(text string, voice string, speed float64) ([]string, err
 					cParts, cPart, cLen = nil, nil, 0
 				}
 				if cPart == nil {
-					cPart = &ssml.Text{Texts: []ssml.TextPart{}, Voice: sp.Voice, Speed: sp.Speed}
+					cPart = &ssml.Text{Texts: []ssml.TextPart{}, Voice: sp.Voice} // Speed: sp.Speed
+
 					cParts = append(cParts, cPart)
 				}
 				for _, p := range txtParts {
 					cPart.Texts = append(cPart.Texts, *p)
 				}
-				cLen += pLen 
+				cLen += pLen
 			}
 		case *ssml.Pause:
 			cParts = append(cParts, sp)
@@ -141,14 +144,14 @@ func getRuneCount(txt []*ssml.TextPart) int {
 	return res
 }
 
-
 func saveToSSMLString(cParts []ssml.Part) string {
 	res := strings.Builder{}
 	res.WriteString("<speak>")
 	for _, part := range cParts {
 		switch sp := part.(type) {
 		case *ssml.Text:
-			res.WriteString(fmt.Sprintf(`<voice name="%s"><prosody rate="%s">`, sp.Voice, toRateStr(sp.Speed)))
+			// todo speed
+			res.WriteString(fmt.Sprintf(`<voice name="%s"><prosody rate="%s">`, sp.Voice, toRateStr(1)))
 			for _, tp := range sp.Texts {
 				if tp.Accented != "" {
 					res.WriteString(`<intelektika:w acc="`)
@@ -294,7 +297,7 @@ func getNewPattern(str string, r rune) string {
 	return str[1:] + "-"
 }
 
-func (w *Worker) save(ID string, texts []string) error {
+func (w *Worker) save(ctx context.Context, ID string, texts []string) error {
 	path := strings.ReplaceAll(w.savePath, "{}", ID)
 	err := w.createDirFunc(path)
 	if err != nil {
@@ -302,7 +305,7 @@ func (w *Worker) save(ID string, texts []string) error {
 	}
 	for i, s := range texts {
 		fp := filepath.Join(path, fmt.Sprintf("%04d.txt", i))
-		err := w.saveFunc(fp, []byte(s))
+		err := w.saveFunc(ctx, fp, []byte(s))
 		if err != nil {
 			return errors.Wrapf(err, "can't save %s", fp)
 		}

@@ -11,8 +11,8 @@ import (
 
 	"github.com/airenas/big-tts/internal/pkg/messages"
 	"github.com/airenas/big-tts/internal/pkg/utils"
-	"github.com/airenas/go-app/pkg/goapp"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 )
 
 // Worker is a main class implementing join functionality
@@ -23,9 +23,9 @@ type Worker struct {
 	metadata []string
 
 	existsFunc    func(string) bool
-	saveFunc      func(string, []byte) error
+	saveFunc      func(context.Context, string, []byte) error
 	createDirFunc func(string) error
-	convertFunc   func([]string) error
+	convertFunc   func(context.Context, []string) error
 }
 
 // NewWorker creates new join worker
@@ -39,8 +39,8 @@ func NewWorker(inDir, savePath, workPath string, metadata []string) (*Worker, er
 	if !strings.Contains(workPath, "{}") {
 		return nil, errors.Errorf("no ID template in workPath")
 	}
-	goapp.Log.Infof("Joiner in: %s", inDir)
-	goapp.Log.Infof("Joiner out: %s", savePath)
+	log.Info().Msgf("Joiner in: %s", inDir)
+	log.Info().Msgf("Joiner out: %s", savePath)
 	res := &Worker{inDir: inDir, savePath: savePath, metadata: metadata, workPath: workPath}
 	res.existsFunc = utils.FileExists
 	res.saveFunc = utils.WriteFile
@@ -51,7 +51,7 @@ func NewWorker(inDir, savePath, workPath string, metadata []string) (*Worker, er
 
 // Do is an entry function for join worker
 func (w *Worker) Do(ctx context.Context, msg *messages.TTSMessage) error {
-	goapp.Log.Infof("Doing join job for %s", msg.ID)
+	log.Ctx(ctx).Info().Msgf("Doing join job for %s", msg.ID)
 	files, err := w.makeList(msg.ID, msg.OutputFormat)
 	if err != nil {
 		return errors.Wrapf(err, "can't prepare files list")
@@ -67,12 +67,12 @@ func (w *Worker) Do(ctx context.Context, msg *messages.TTSMessage) error {
 		return errors.Wrapf(err, "can't create %s", wpath)
 	}
 	listFile := filepath.Join(wpath, "list.txt")
-	err = w.saveFunc(listFile, []byte(prepareListFile(files)))
+	err = w.saveFunc(ctx, listFile, []byte(prepareListFile(files)))
 	if err != nil {
 		return errors.Wrapf(err, "can't save %s", listFile)
 	}
 	outFile := filepath.Join(path, fmt.Sprintf("result.%s", msg.OutputFormat))
-	return w.join(listFile, outFile)
+	return w.join(ctx, listFile, outFile)
 }
 
 func (w *Worker) makeList(ID, format string) ([]string, error) {
@@ -99,11 +99,11 @@ func prepareListFile(files []string) string {
 	return res.String()
 }
 
-func (w *Worker) join(nameIn string, out string) error {
+func (w *Worker) join(ctx context.Context, nameIn string, out string) error {
 	params := []string{"ffmpeg", "-f", "concat", "-safe", "0", "-i", nameIn, "-c", "copy"}
 	params = append(params, getMetadataParams(w.metadata)...)
 	params = append(params, out)
-	err := w.convertFunc(params)
+	err := w.convertFunc(ctx, params)
 	if err != nil {
 		return err
 	}
@@ -122,8 +122,8 @@ func getMetadataParams(prm []string) []string {
 	return res
 }
 
-func runCmd(cmdArr []string) error {
-	goapp.Log.Infof("Run: %s", strings.Join(cmdArr, " "))
+func runCmd(ctx context.Context, cmdArr []string) error {
+	log.Ctx(ctx).Info().Msgf("Run: %s", strings.Join(cmdArr, " "))
 	cmd := exec.Command(cmdArr[0], cmdArr[1:]...)
 	var outputBuffer bytes.Buffer
 	cmd.Stdout = &outputBuffer

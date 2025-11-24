@@ -16,10 +16,22 @@ import (
 	"github.com/airenas/go-app/pkg/goapp"
 	"github.com/labstack/gommon/color"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/streadway/amqp"
 )
 
 func main() {
+	goapp.StartWithDefault()
+	log.Logger = goapp.Log
+	zerolog.DefaultContextLogger = &goapp.Log
+
+	if err := mainInt(context.Background()); err != nil {
+		log.Fatal().Err(err).Send()
+	}
+}
+
+func mainInt(ctx context.Context) error {
 	goapp.StartWithDefault()
 
 	data := &inform.ServiceData{}
@@ -28,35 +40,35 @@ func main() {
 	msgChannelProvider, err := rabbit.NewChannelProvider(cfg.GetString("messageServer.url"),
 		cfg.GetString("messageServer.user"), cfg.GetString("messageServer.pass"))
 	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't init rabbitmq channel provider"))
+		return (errors.Wrap(err, "can't init rabbitmq channel provider"))
 	}
 	defer msgChannelProvider.Close()
-	err = initQueues(msgChannelProvider)
+	err = initQueues(ctx, msgChannelProvider)
 	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't init queues"))
+		return (errors.Wrap(err, "can't init queues"))
 	}
 
 	ch, err := msgChannelProvider.Channel()
 	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't open channel"))
+		return (errors.Wrap(err, "can't open channel"))
 	}
 	if err = ch.Qos(1, 0, false); err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't set Qos"))
+		return (errors.Wrap(err, "can't set Qos"))
 	}
 
 	if data.WorkCh, err = makeQChannel(ch, msgChannelProvider.QueueName(messages.Inform)); err != nil {
-		goapp.Log.Fatal(err)
+		return (errors.Wrap(err, "can't make work channel"))
 	}
 
 	mongoSessionProvider, err := mng.NewSessionProvider(cfg.GetString("mongo.url"), mongo.GetIndexes(), "tts")
 	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't init mongo session provider"))
+		return (errors.Wrap(err, "can't init mongo session provider"))
 	}
 	defer mongoSessionProvider.Close()
 
 	data.EmailMaker, err = ainform.NewTemplateEmailMaker(cfg)
 	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't init email maker"))
+		return (errors.Wrap(err, "can't init email maker"))
 	}
 
 	data.TaskName = cfg.GetString("worker.taskName")
@@ -64,52 +76,55 @@ func main() {
 	if location != "" {
 		data.Location, err = time.LoadLocation(location)
 		if err != nil {
-			goapp.Log.Fatal(errors.Wrap(err, "can't init location"))
+			return (errors.Wrap(err, "can't init location"))
 		}
 	}
 
 	data.EmailSender, err = ainform.NewSimpleEmailSender(cfg)
 	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't init email sender"))
+		return (errors.Wrap(err, "can't init email sender"))
 	}
 
 	data.Locker, err = mng.NewLocker(mongoSessionProvider, mongo.EmailTable)
 	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't init mongo locker"))
+		return (errors.Wrap(err, "can't init mongo locker"))
 	}
 
 	data.EmailRetriever, err = mongo.NewRequest(mongoSessionProvider)
 	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't init email retriever"))
+		return (errors.Wrap(err, "can't init email retriever"))
 	}
 
 	printBanner()
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+
 	doneCh, err := inform.StartWorkerService(ctx, data)
 	if err != nil {
-		goapp.Log.Fatal(errors.Wrap(err, "can't start inform worker service"))
+		return (errors.Wrap(err, "can't start inform worker service"))
 	}
 	/////////////////////// Waiting for terminate
 	waitCh := make(chan os.Signal, 2)
 	signal.Notify(waitCh, os.Interrupt, syscall.SIGTERM)
 	select {
 	case <-waitCh:
-		goapp.Log.Info("Got exit signal")
+		log.Ctx(ctx).Info().Msg("Got exit signal")
 	case <-doneCh:
-		goapp.Log.Info("Service exit")
+		log.Ctx(ctx).Info().Msg("Service exit")
 	}
 	cancelFunc()
 	select {
 	case <-doneCh:
-		goapp.Log.Info("All code returned. Now exit. Bye")
+		log.Ctx(ctx).Info().Msg("All code returned. Now exit. Bye")
 	case <-time.After(time.Second * 15):
-		goapp.Log.Warn("Timeout gracefull shutdown")
+		log.Ctx(ctx).Warn().Msg("Timeout graceful shutdown")
 	}
+	return nil
 }
 
-func initQueues(prv *rabbit.ChannelProvider) error {
-	goapp.Log.Info("Initializing queues")
+func initQueues(ctx context.Context, prv *rabbit.ChannelProvider) error {
+	log.Ctx(ctx).Info().Msg("Initializing queues")
 	for _, n := range [...]string{messages.Inform} {
 		err := prv.RunOnChannelWithRetry(func(ch *amqp.Channel) error {
 			_, err := rabbit.DeclareQueue(ch, prv.QueueName(n))

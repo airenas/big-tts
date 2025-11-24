@@ -19,6 +19,7 @@ import (
 	"github.com/airenas/big-tts/internal/pkg/utils"
 	"github.com/airenas/go-app/pkg/goapp"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 )
 
 // Worker implements synthesize one part functionality
@@ -30,14 +31,14 @@ type Worker struct {
 	httpClient  http.Client
 
 	loadFunc      func(string) ([]byte, error)
-	saveFunc      func(string, []byte) error
+	saveFunc      func(context.Context, string, []byte) error
 	createDirFunc func(string) error
 	existsFunc    func(string) bool
 	callFunc      func(string, *messages.TTSMessage) ([]byte, error)
 }
 
 // NewWorker creates new synthesize worker
-func NewWorker(inTemplate, outTemplate string, url string, workerCount int) (*Worker, error) {
+func NewWorker(ctx context.Context, inTemplate, outTemplate string, url string, workerCount int) (*Worker, error) {
 	if !strings.Contains(inTemplate, "{}") {
 		return nil, errors.Errorf("no ID template in inTemplate")
 	}
@@ -64,16 +65,16 @@ func NewWorker(inTemplate, outTemplate string, url string, workerCount int) (*Wo
 		MaxConnsPerHost:     50,
 	}}
 
-	goapp.Log.Infof("Synthesizer URL: %s", res.serviceURL)
-	goapp.Log.Infof("Synthesizer workers: %d", res.workerCount)
-	goapp.Log.Infof("Synthesizer in dir: %s", res.inDir)
-	goapp.Log.Infof("Synthesizer out dir: %s", res.outDir)
+	log.Ctx(ctx).Info().Msgf("Synthesizer URL: %s", res.serviceURL)
+	log.Ctx(ctx).Info().Msgf("Synthesizer workers: %d", res.workerCount)
+	log.Ctx(ctx).Info().Msgf("Synthesizer in dir: %s", res.inDir)
+	log.Ctx(ctx).Info().Msgf("Synthesizer out dir: %s", res.outDir)
 	return res, nil
 }
 
 // Do synthesizes one part of a text
 func (w *Worker) Do(ctx context.Context, msg *messages.TTSMessage) error {
-	goapp.Log.Infof("Doing synthesize job for %s", msg.ID)
+	log.Ctx(ctx).Info().Msgf("Doing synthesize job for %s", msg.ID)
 	outDir := strings.ReplaceAll(w.outDir, "{}", msg.ID)
 	if err := w.createDirFunc(outDir); err != nil {
 		return errors.Wrapf(err, "can't create %s", outDir)
@@ -92,11 +93,11 @@ out:
 			// --- case syncCh <- struct{}{}: ---
 			select {
 			case <-ctx.Done():
-				goapp.Log.Warnf("Exit synthesizer loop")
+				log.Ctx(ctx).Warn().Msgf("Exit synthesizer loop")
 				errCh <- context.Canceled
 				break out
 			case err := <-errCh:
-				goapp.Log.Infof("Error occured, waiting to complete all jobs")
+				log.Ctx(ctx).Info().Msgf("Error occurred, waiting to complete all jobs")
 				wg.Wait()
 				return err
 			default:
@@ -105,11 +106,11 @@ out:
 			select {
 			case syncCh <- struct{}{}:
 			case <-ctx.Done():
-				goapp.Log.Warnf("Exit synthesizer loop")
+				log.Ctx(ctx).Warn().Msgf("Exit synthesizer loop")
 				errCh <- context.Canceled
 				break out
 			case err := <-errCh:
-				goapp.Log.Infof("Error occured, waiting to complete all jobs")
+				log.Ctx(ctx).Info().Msgf("Error occurred, waiting to complete all jobs")
 				wg.Wait()
 				return err
 			}
@@ -119,15 +120,15 @@ out:
 					wg.Done()
 					<-syncCh
 				}()
-				goapp.Log.Infof("Process item %d", _i)
-				err := w.invoke(_inF, _outF, msg)
+				log.Ctx(ctx).Info().Msgf("Process item %d", _i)
+				err := w.invoke(ctx, _inF, _outF, msg)
 				if err != nil {
 					errCh <- err
 				}
 			}(inF, outF, i)
 		}
 	}
-	goapp.Log.Infof("Waiting to complete all jobs")
+	log.Ctx(ctx).Info().Msgf("Waiting to complete all jobs")
 	wg.Wait()
 	errCh <- nil
 	return <-errCh
@@ -146,7 +147,7 @@ func (w *Worker) getFiles(num int, msg *messages.TTSMessage) (bool, string, stri
 	return false, inFile, outFile
 }
 
-func (w *Worker) invoke(inFile string, outFile string, msg *messages.TTSMessage) error {
+func (w *Worker) invoke(ctx context.Context, inFile string, outFile string, msg *messages.TTSMessage) error {
 	text, err := w.loadFunc(inFile)
 	if err != nil {
 		return err
@@ -155,7 +156,7 @@ func (w *Worker) invoke(inFile string, outFile string, msg *messages.TTSMessage)
 	if err != nil {
 		return err
 	}
-	return w.saveFunc(outFile, bytes)
+	return w.saveFunc(ctx, outFile, bytes)
 }
 
 type (
@@ -210,7 +211,7 @@ func (w *Worker) invokeRemote(dataIn input, dataOut *result, saveTags []string) 
 	ctx, cancelF := context.WithTimeout(context.Background(), time.Minute*10)
 	defer cancelF()
 	req = req.WithContext(ctx)
-	goapp.Log.Infof("Call: %s", goapp.Sanitize(req.URL.String()))
+	log.Ctx(ctx).Info().Msgf("Call: %s", goapp.Sanitize(req.URL.String()))
 	resp, err := w.httpClient.Do(req)
 	if err != nil {
 		return errors.Wrapf(err, "can't call '%s'", req.URL.String())

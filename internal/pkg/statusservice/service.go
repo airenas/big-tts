@@ -1,7 +1,7 @@
 package statusservice
 
 import (
-	"log"
+	"context"
 	"net/http"
 	"strconv"
 	"time"
@@ -12,14 +12,17 @@ import (
 	"github.com/airenas/big-tts/internal/pkg/persistence"
 	"github.com/airenas/go-app/pkg/goapp"
 
+	slog "log"
+
 	"github.com/labstack/echo-contrib/prometheus"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/rs/zerolog/log"
 )
 
 // StatusProvider returns status for the ID
 type StatusProvider interface {
-	Get(id string) (*persistence.Status, error)
+	Get(ctx context.Context, id string) (*persistence.Status, error)
 }
 
 // Data keeps data required for service work
@@ -28,9 +31,9 @@ type Data struct {
 	StatusProvider StatusProvider
 }
 
-//StartWebServer starts echo web service
-func StartWebServer(data *Data) error {
-	goapp.Log.Infof("Starting BIG TTS Status service at %d", data.Port)
+// StartWebServer starts echo web service
+func StartWebServer(ctx context.Context, data *Data) error {
+	log.Ctx(ctx).Info().Msgf("Starting BIG TTS Status service at %d", data.Port)
 
 	if data.StatusProvider == nil {
 		return errors.New("no status provider")
@@ -38,17 +41,14 @@ func StartWebServer(data *Data) error {
 
 	portStr := strconv.Itoa(data.Port)
 
-	e := initRoutes(data)
+	e := initRoutes(ctx, data)
 
 	e.Server.Addr = ":" + portStr
 	e.Server.ReadHeaderTimeout = 5 * time.Second
 	e.Server.ReadTimeout = 10 * time.Second
 	e.Server.WriteTimeout = 10 * time.Second
 
-	w := goapp.Log.Writer()
-	defer w.Close()
-	l := log.New(w, "", 0)
-	gracehttp.SetLogger(l)
+	gracehttp.SetLogger(slog.New(goapp.Log, "", 0))
 
 	return gracehttp.Serve(e.Server)
 }
@@ -59,7 +59,7 @@ func init() {
 	promMdlw = prometheus.NewPrometheus("tts_status", nil)
 }
 
-func initRoutes(data *Data) *echo.Echo {
+func initRoutes(ctx context.Context, data *Data) *echo.Echo {
 	e := echo.New()
 	e.Use(middleware.Logger())
 	promMdlw.Use(e)
@@ -67,9 +67,9 @@ func initRoutes(data *Data) *echo.Echo {
 	e.GET("/status/:id", status(data))
 	e.GET("/live", live(data))
 
-	goapp.Log.Info("Routes:")
+	log.Ctx(ctx).Info().Msg("Routes:")
 	for _, r := range e.Routes() {
-		goapp.Log.Infof("  %s %s", r.Method, r.Path)
+		log.Ctx(ctx).Info().Msgf("  %s %s", r.Method, r.Path)
 	}
 	return e
 }
@@ -93,9 +93,9 @@ func status(data *Data) func(echo.Context) error {
 		if id == "" {
 			return echo.NewHTTPError(http.StatusBadRequest, "No ID")
 		}
-		st, err := data.StatusProvider.Get(id)
+		st, err := data.StatusProvider.Get(c.Request().Context(), id)
 		if err != nil {
-			goapp.Log.Error(err)
+			log.Ctx(c.Request().Context()).Error().Err(err).Msg("Failed to get status")
 			return echo.NewHTTPError(http.StatusInternalServerError, "Service error")
 		}
 		if st == nil {

@@ -95,7 +95,7 @@ func TestWorker_Do(t *testing.T) {
 		assert.Equal(t, "id1.txt", s)
 		return []byte("string"), nil
 	}
-	got.saveFunc = func(s string, b []byte) error {
+	got.saveFunc = func(ctx context.Context, s string, b []byte) error {
 		return nil
 	}
 	got.createDirFunc = func(s string) error {
@@ -111,7 +111,7 @@ func TestWorker_Do_Fail(t *testing.T) {
 	got.loadFunc = func(s string) ([]byte, error) {
 		return nil, errors.New("err")
 	}
-	got.saveFunc = func(s string, b []byte) error {
+	got.saveFunc = func(ctx context.Context, s string, b []byte) error {
 		return nil
 	}
 	got.createDirFunc = func(s string) error {
@@ -124,7 +124,7 @@ func TestWorker_Do_Fail(t *testing.T) {
 func TestWorker_Do_FailSave(t *testing.T) {
 	got, err := NewWorker("{}.txt", "new/{}/path")
 	assert.Nil(t, err)
-	got.saveFunc = func(s string, b []byte) error {
+	got.saveFunc = func(ctx context.Context, s string, b []byte) error {
 		return errors.New("err")
 	}
 	got.createDirFunc = func(s string) error {
@@ -164,23 +164,23 @@ func Test_saveToSSMLString(t *testing.T) {
 		want string
 	}{
 		{name: "Empty", args: nil, want: "<speak></speak>"},
-		{name: "Text", args: []ssml.Part{&ssml.Text{Texts: []ssml.TextPart{{Text: "olia"}}, Speed: 1, Voice: "as"}},
+		{name: "Text", args: []ssml.Part{&ssml.Text{Texts: []ssml.TextPart{{Text: "olia"}}, Prosodies: []*ssml.Prosody{{Rate: 1}}, Voice: "as"}},
 			want: `<speak><voice name="as"><prosody rate="100%">olia</prosody></voice></speak>`},
 		{name: "Break", args: []ssml.Part{&ssml.Pause{Duration: 4 * time.Second}},
 			want: `<speak><break time="4000ms"/></speak>`},
-		{name: "Several", args: []ssml.Part{&ssml.Text{Texts: []ssml.TextPart{{Text: "olia"}}, Speed: 1.5, Voice: "as"},
+		{name: "Several", args: []ssml.Part{&ssml.Text{Texts: []ssml.TextPart{{Text: "olia"}}, Prosodies: []*ssml.Prosody{{Rate: 1.5}}, Voice: "as"},
 			&ssml.Pause{Duration: 2 * time.Second},
-			&ssml.Text{Texts: []ssml.TextPart{{Text: "olia"}}, Speed: .75, Voice: "as2"}},
+			&ssml.Text{Texts: []ssml.TextPart{{Text: "olia"}}, Prosodies: []*ssml.Prosody{{Rate: 0.75}}, Voice: "as2"}},
 			want: `<speak><voice name="as"><prosody rate="75%">olia</prosody></voice>` +
 				`<break time="2000ms"/>` +
 				`<voice name="as2"><prosody rate="150%">olia</prosody></voice></speak>`},
-		{name: "Word", args: []ssml.Part{&ssml.Text{Texts: []ssml.TextPart{{Text: "olia", Accented: "oli{a/}"}}, Speed: 1, Voice: "as"}},
+		{name: "Word", args: []ssml.Part{&ssml.Text{Texts: []ssml.TextPart{{Text: "olia", Accented: "oli{a/}"}}, Prosodies: []*ssml.Prosody{{Rate: 1}}, Voice: "as"}},
 			want: `<speak><voice name="as"><prosody rate="100%"><intelektika:w acc="oli{a/}">olia</intelektika:w></prosody></voice></speak>`},
-		{name: "Several words", args: []ssml.Part{&ssml.Text{Texts: []ssml.TextPart{{Text: "before"}, {Text: "olia", Accented: "oli{a/}"}, {Text: "long end"}}, Speed: 1, Voice: "as"}},
+		{name: "Several words", args: []ssml.Part{&ssml.Text{Texts: []ssml.TextPart{{Text: "before"}, {Text: "olia", Accented: "oli{a/}"}, {Text: "long end"}}, Prosodies: []*ssml.Prosody{{Rate: 1}}, Voice: "as"}},
 			want: `<speak><voice name="as"><prosody rate="100%">before<intelektika:w acc="oli{a/}">olia</intelektika:w>long end</prosody></voice></speak>`},
-		{name: "Word sylls", args: []ssml.Part{&ssml.Text{Texts: []ssml.TextPart{{Text: "olia", Accented: "oli{a/}", Syllables: "o-li-a"}}, Speed: 1, Voice: "as"}},
+		{name: "Word sylls", args: []ssml.Part{&ssml.Text{Texts: []ssml.TextPart{{Text: "olia", Accented: "oli{a/}", Syllables: "o-li-a"}}, Prosodies: []*ssml.Prosody{{Rate: 1}}, Voice: "as"}},
 			want: `<speak><voice name="as"><prosody rate="100%"><intelektika:w acc="oli{a/}" syll="o-li-a">olia</intelektika:w></prosody></voice></speak>`},
-		{name: "Word OE model", args: []ssml.Part{&ssml.Text{Texts: []ssml.TextPart{{Text: "olia", Accented: "oli{a/}", Syllables: "o-li-a", UserOEPal: "O'lia"}}, Speed: 1, Voice: "as"}},
+		{name: "Word OE model", args: []ssml.Part{&ssml.Text{Texts: []ssml.TextPart{{Text: "olia", Accented: "oli{a/}", Syllables: "o-li-a", UserOEPal: "O'lia"}}, Prosodies: []*ssml.Prosody{{Rate: 1}}, Voice: "as"}},
 			want: `<speak><voice name="as"><prosody rate="100%"><intelektika:w acc="oli{a/}" syll="o-li-a" user="O&#39;lia">olia</intelektika:w></prosody></voice></speak>`},
 	}
 	for _, tt := range tests {
@@ -201,8 +201,8 @@ func TestWorker_doSSML(t *testing.T) {
 		wantErr bool
 	}{
 		{name: "do not split at word tag", wChars: 30, args: `<speak>laba diena <intelektika:w acc="oli{a/}" syll="o-l-ia" user="O'li*a">olia</intelektika:w> laba diena. laba diena laba diena</speak>`,
-			want:    []string{`<speak><voice name="vd"><prosody rate="75%">laba diena<intelektika:w acc="oli{a/}" syll="o-l-ia" user="O&#39;li*a">olia</intelektika:w>laba diena.</prosody></voice></speak>`, 
-			`<speak><voice name="vd"><prosody rate="75%">laba diena laba diena</prosody></voice></speak>`},
+			want: []string{`<speak><voice name="vd"><prosody rate="75%">laba diena<intelektika:w acc="oli{a/}" syll="o-l-ia" user="O&#39;li*a">olia</intelektika:w>laba diena.</prosody></voice></speak>`,
+				`<speak><voice name="vd"><prosody rate="75%">laba diena laba diena</prosody></voice></speak>`},
 			wantErr: false},
 
 		{name: "splits many words", wChars: 20, args: `<speak><intelektika:w acc="dfasdf{a/}">asdfg</intelektika:w><intelektika:w acc="dfasdf{a/}">asdfg</intelektika:w>` +

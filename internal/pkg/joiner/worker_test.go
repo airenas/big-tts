@@ -39,12 +39,12 @@ func TestWorker_Do(t *testing.T) {
 		testCreate = "save/id1/"
 		return nil
 	}
-	got.saveFunc = func(s string, b []byte) error {
+	got.saveFunc = func(ctx context.Context, s string, b []byte) error {
 		assert.Equal(t, "save/id1/list.txt", s)
 		assert.Equal(t, "file 'in/id1/0000.mp3'\nfile 'in/id1/0001.mp3'\n", string(b))
 		return nil
 	}
-	got.convertFunc = func(s []string) error {
+	got.convertFunc = func(ctx context.Context, s []string) error {
 		assert.Equal(t, []string{"ffmpeg", "-f", "concat",
 			"-safe", "0",
 			"-i", "save/id1/list.txt",
@@ -69,10 +69,10 @@ func TestWorker_Do_Fail(t *testing.T) {
 	got.createDirFunc = func(s string) error {
 		return errors.New("err")
 	}
-	got.saveFunc = func(s string, b []byte) error {
+	got.saveFunc = func(ctx context.Context, s string, b []byte) error {
 		return nil
 	}
-	got.convertFunc = func(s []string) error {
+	got.convertFunc = func(ctx context.Context, s []string) error {
 		return nil
 	}
 	err = got.Do(context.Background(), &messages.TTSMessage{QueueMessage: amessages.QueueMessage{ID: "id1"}, OutputFormat: "mp3"})
@@ -90,10 +90,10 @@ func TestWorker_Do_FailSave(t *testing.T) {
 	got.createDirFunc = func(s string) error {
 		return nil
 	}
-	got.saveFunc = func(s string, b []byte) error {
+	got.saveFunc = func(ctx context.Context, s string, b []byte) error {
 		return errors.New("err")
 	}
-	got.convertFunc = func(s []string) error {
+	got.convertFunc = func(ctx context.Context, s []string) error {
 		return nil
 	}
 	err = got.Do(context.Background(), &messages.TTSMessage{QueueMessage: amessages.QueueMessage{ID: "id1"}, OutputFormat: "mp3"})
@@ -111,10 +111,10 @@ func TestWorker_Do_FailConvert(t *testing.T) {
 	got.createDirFunc = func(s string) error {
 		return nil
 	}
-	got.saveFunc = func(s string, b []byte) error {
+	got.saveFunc = func(ctx context.Context, s string, b []byte) error {
 		return nil
 	}
-	got.convertFunc = func(s []string) error {
+	got.convertFunc = func(ctx context.Context, s []string) error {
 		return errors.New("err")
 	}
 	err = got.Do(context.Background(), &messages.TTSMessage{QueueMessage: amessages.QueueMessage{ID: "id1"}, OutputFormat: "mp3"})
@@ -135,7 +135,7 @@ func Test_runCmd(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := runCmd(tt.args.cmdArr); (err != nil) != tt.wantErr {
+			if err := runCmd(t.Context(), tt.args.cmdArr); (err != nil) != tt.wantErr {
 				t.Errorf("runCmd() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})

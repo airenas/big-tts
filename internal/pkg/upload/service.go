@@ -1,8 +1,8 @@
 package upload
 
 import (
+	"context"
 	"io"
-	"log"
 	"mime/multipart"
 	"net/http"
 	"path/filepath"
@@ -20,9 +20,12 @@ import (
 
 	"github.com/airenas/go-app/pkg/goapp"
 
+	slog "log"
+
 	"github.com/labstack/echo-contrib/prometheus"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/rs/zerolog/log"
 )
 
 // FileSaver provides save file functionality
@@ -37,7 +40,7 @@ type MsgSender interface {
 
 // RequestSaver saves requests to DB
 type RequestSaver interface {
-	Save(req *persistence.ReqData) error
+	Save(ctx context.Context, req *persistence.ReqData) error
 }
 
 // Data keeps data required for service work
@@ -52,24 +55,22 @@ type Data struct {
 const requestIDHEader = "x-doorman-requestid"
 
 // StartWebServer starts echo web service
-func StartWebServer(data *Data) error {
-	goapp.Log.Infof("Starting HTTP BIG TTS Line service at %d", data.Port)
+func StartWebServer(ctx context.Context, data *Data) error {
+	log.Ctx(ctx).Info().Msgf("Starting HTTP BIG TTS Line service at %d", data.Port)
 	if err := validate(data); err != nil {
 		return err
 	}
 
 	portStr := strconv.Itoa(data.Port)
 
-	e := initRoutes(data)
+	e := initRoutes(ctx, data)
 
 	e.Server.Addr = ":" + portStr
 	e.Server.ReadHeaderTimeout = 5 * time.Second
 	e.Server.ReadTimeout = 45 * time.Second
 	e.Server.WriteTimeout = 30 * time.Second
 
-	w := goapp.Log.Writer()
-	defer w.Close()
-	gracehttp.SetLogger(log.New(w, "", 0))
+	gracehttp.SetLogger(slog.New(goapp.Log, "", 0))
 
 	return gracehttp.Serve(e.Server)
 }
@@ -96,7 +97,7 @@ func init() {
 	promMdlw = prometheus.NewPrometheus("tts_upload", nil)
 }
 
-func initRoutes(data *Data) *echo.Echo {
+func initRoutes(ctx context.Context, data *Data) *echo.Echo {
 	e := echo.New()
 	e.Use(middleware.Logger())
 	promMdlw.Use(e)
@@ -104,9 +105,9 @@ func initRoutes(data *Data) *echo.Echo {
 	e.POST("/upload", upload(data))
 	e.GET("/live", live(data))
 
-	goapp.Log.Info("Routes:")
+	log.Ctx(ctx).Info().Msg("Routes:")
 	for _, r := range e.Routes() {
-		goapp.Log.Infof("  %s %s", r.Method, r.Path)
+		log.Ctx(ctx).Info().Msgf("  %s %s", r.Method, r.Path)
 	}
 	return e
 }
@@ -125,9 +126,11 @@ func upload(data *Data) func(echo.Context) error {
 	return func(c echo.Context) error {
 		defer goapp.Estimate("upload method")()
 
+		ctx := c.Request().Context()
+
 		inData, err := getInputData(c, data.Configurator)
 		if err != nil {
-			goapp.Log.Error(err)
+			log.Ctx(ctx).Err(err).Send()
 			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 		}
 
@@ -135,7 +138,7 @@ func upload(data *Data) func(echo.Context) error {
 		if err != nil {
 			return echo.NewHTTPError(http.StatusBadRequest, "no multipart form data")
 		}
-		defer cleanFiles(form)
+		defer cleanFiles(context.Background(), form)
 
 		files, ok := form.File["file"]
 		if !ok {
@@ -163,19 +166,19 @@ func upload(data *Data) func(echo.Context) error {
 
 		err = data.Saver.Save(fileName, src)
 		if err != nil {
-			goapp.Log.Error(err)
+			log.Ctx(ctx).Err(err).Send()
 			return errors.Wrap(err, "can not save file")
 		}
 
 		requestID := extractRequestID(c.Request().Header)
-		goapp.Log.Infof("RequestID=%s", goapp.Sanitize(requestID))
+		log.Ctx(ctx).Info().Msgf("RequestID=%s", goapp.Sanitize(requestID))
 
 		inData.ID = id
 		inData.Filename = fileName
 		inData.RequestID = requestID
-		err = data.ReqSaver.Save(inData)
+		err = data.ReqSaver.Save(ctx, inData)
 		if err != nil {
-			goapp.Log.Error(err)
+			log.Ctx(ctx).Err(err).Send()
 			return errors.Wrap(err, "can not save request")
 		}
 
@@ -190,7 +193,7 @@ func upload(data *Data) func(echo.Context) error {
 		}
 		err = data.MsgSender.Send(msg, messages.Upload, "")
 		if err != nil {
-			goapp.Log.Error(err)
+			log.Ctx(ctx).Err(err).Send()
 			return errors.Wrap(err, "can not send msg")
 		}
 
@@ -207,10 +210,10 @@ func getInputData(c echo.Context, cfg *TTSConfigutaror) (*persistence.ReqData, e
 	return cfg.Configure(c)
 }
 
-func cleanFiles(f *multipart.Form) {
+func cleanFiles(ctx context.Context, f *multipart.Form) {
 	if f != nil {
 		if err := f.RemoveAll(); err != nil {
-			goapp.Log.Error(err)
+			log.Ctx(ctx).Err(err).Send()
 		}
 	}
 }

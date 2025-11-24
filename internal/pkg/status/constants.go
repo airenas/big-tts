@@ -1,6 +1,6 @@
 package status
 
-//Status represents synthesize status
+// Status represents synthesize status
 type Status int
 
 const (

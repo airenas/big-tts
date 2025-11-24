@@ -1,7 +1,9 @@
 package mongo
 
 import (
+	"context"
 	"fmt"
+	"github.com/rs/zerolog/log"
 
 	mng "github.com/airenas/async-api/pkg/mongo"
 	"github.com/airenas/big-tts/internal/pkg/persistence"
@@ -19,15 +21,15 @@ type Request struct {
 	statusSaver     *Status
 }
 
-//NewRequest creates Request instance
+// NewRequest creates Request instance
 func NewRequest(sessionProvider *mng.SessionProvider) (*Request, error) {
 	f := Request{SessionProvider: sessionProvider, statusSaver: &Status{SessionProvider: sessionProvider}}
 	return &f, nil
 }
 
 // Save saves resquest to DB
-func (rm *Request) Save(data *persistence.ReqData) error {
-	goapp.Log.Infof("Saving request %s: %s", data.ID, goapp.Sanitize(data.Email))
+func (rm *Request) Save(ctx context.Context, data *persistence.ReqData) error {
+	log.Ctx(ctx).Info().Msgf("Saving request %s: %s", data.ID, goapp.Sanitize(data.Email))
 
 	c, ctx, cancel, err := mng.NewCollection(rm.SessionProvider, RequestTable)
 	if err != nil {
@@ -43,12 +45,12 @@ func (rm *Request) Save(data *persistence.ReqData) error {
 	if err != nil {
 		return err
 	}
-	return rm.statusSaver.Save(data.ID, status.Uploaded.String(), "")
+	return rm.statusSaver.Save(ctx, data.ID, status.Uploaded.String(), "")
 }
 
-//GetResultFile returns file name by ID
+// GetResultFile returns file name by ID
 func (rm *Request) GetResultFile(id string) (string, error) {
-	goapp.Log.Infof("Getting file name by ID %s", goapp.Sanitize(id))
+	goapp.Log.Info().Msgf("Getting file name by ID %s", goapp.Sanitize(id))
 	m, err := rm.loadData(id)
 	if err != nil {
 		return "", err
@@ -77,9 +79,9 @@ func (rm *Request) loadData(id string) (*persistence.ReqData, error) {
 	return &res, nil
 }
 
-//GetEmail returns email by ID
+// GetEmail returns email by ID
 func (rm *Request) GetEmail(id string) (string, error) {
-	goapp.Log.Infof("Getting email by ID %s", id)
+	goapp.Log.Info().Msgf("Getting email by ID %s", id)
 	m, err := rm.loadData(id)
 	if err != nil {
 		return "", err
