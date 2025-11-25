@@ -226,7 +226,7 @@ func startProsody(res *strings.Builder, prosody *ssml.Prosody) {
 		res.WriteString(fmt.Sprintf(` rate="%s"`, toRateStr(float32(prosody.Rate))))
 	}
 	if prosody.Volume != 0 {
-		vol := fmt.Sprintf("%.2fdB", prosody.Volume)
+		vol := fmt.Sprintf("%+.2fdB", prosody.Volume)
 		if prosody.Volume <= ssml.MinVolumeChange {
 			vol = "silent"
 		}

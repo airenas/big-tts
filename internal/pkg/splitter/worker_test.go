@@ -177,7 +177,7 @@ func Test_saveToSSMLString(t *testing.T) {
 				`<voice name="as2">olia</voice></speak>`},
 		{name: "Prosody", args: []ssml.Part{&ssml.Text{Texts: []ssml.TextPart{{Text: "olia"}},
 			Prosodies: []*ssml.Prosody{{Rate: 1.5, Volume: 2, Pitch: ssml.PitchChange{Kind: ssml.PitchChangeHertz, Value: 10}}}}},
-			want: `<speak><prosody rate="75%" volume="2.00dB" pitch="+10.00Hz">olia</prosody></speak>`},
+			want: `<speak><prosody rate="75%" volume="+2.00dB" pitch="+10.00Hz">olia</prosody></speak>`},
 		{name: "Prosody", args: []ssml.Part{&ssml.Text{Texts: []ssml.TextPart{{Text: "olia"}},
 			Prosodies: []*ssml.Prosody{{Rate: 0.5, Volume: -2.4, Pitch: ssml.PitchChange{Kind: ssml.PitchChangeSemitone, Value: 6}}}}},
 			want: `<speak><prosody rate="200%" volume="-2.40dB" pitch="+6.00st">olia</prosody></speak>`},
