@@ -35,8 +35,6 @@ func main() {
 }
 
 func mainInt(ctx context.Context) error {
-	goapp.StartWithDefault()
-
 	data := &synthesize.ServiceData{}
 	cfg := goapp.Config
 

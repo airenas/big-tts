@@ -29,7 +29,6 @@ func main() {
 }
 
 func mainInt(ctx context.Context) error {
-	goapp.StartWithDefault()
 	cfg := goapp.Config
 	data := &clean.Data{}
 	data.Port = cfg.GetInt("port")
