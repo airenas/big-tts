@@ -278,11 +278,11 @@ func TestWorker_doSSML(t *testing.T) {
 			want: []string{`<speak><voice name="vd"><lang lang="en">asdfg asdfg asdfg asdfg</lang></voice></speak>`,
 				`<speak><voice name="vd"><lang lang="en">asdfg</lang></voice></speak>`},
 			wantErr: false},
-				{name: "splits many words lang", wChars: 20, args: `<speak lang="en">asdfg asdfg ` +
+		{name: "splits many words lang", wChars: 20, args: `<speak lang="en">asdfg asdfg ` +
 			`asdfg <lang lang="us">asdfg</lang> asdfg</speak>`,
 			want: []string{`<speak><voice name="vd"><lang lang="en">asdfg asdfg asdfg</lang><lang lang="us">asdfg</lang></voice></speak>`,
 				`<speak><voice name="vd"><lang lang="en">asdfg</lang></voice></speak>`},
-			wantErr: false},	
+			wantErr: false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
