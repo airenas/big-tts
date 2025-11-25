@@ -46,12 +46,12 @@ func NewWorker(loadPath string, savePath string) (*Worker, error) {
 
 // Do main worker's method
 func (w *Worker) Do(ctx context.Context, msg *messages.TTSMessage) error {
-	log.Ctx(ctx).Info().Msgf("Doing split job for %s", msg.ID)
+	log.Ctx(ctx).Info().Str("id", msg.ID).Msg("split job")
 	text, err := w.load(msg.ID)
 	if err != nil {
 		return errors.Wrapf(err, "can't load text")
 	}
-	texts, err := w.split(text, msg.Voice, msg.Speed)
+	texts, err := w.split(text, msg.Voice)
 	if err != nil {
 		return errors.Wrapf(err, "can't split text")
 	}
@@ -71,20 +71,18 @@ func (w *Worker) load(ID string) (string, error) {
 	return string(bytes), nil
 }
 
-func (w *Worker) split(text string, voice string, speed float64) ([]string, error) {
+func (w *Worker) split(text string, voice string) ([]string, error) {
 	if strings.HasPrefix(text, "<speak") {
-		return w.doSSML(text, voice, speed)
+		return w.doSSML(text, voice)
 	}
 	return w.splitText(text)
 }
 
-func (w *Worker) doSSML(text string, voice string, speed float64) ([]string, error) {
-	//todo speed
-	parts, err := ssml.Parse(strings.NewReader(text), &ssml.Text{Voice: voice}, // Speed: float32(speed)
-
+func (w *Worker) doSSML(text string, voice string) ([]string, error) {
+	parts, err := ssml.Parse(strings.NewReader(text), &ssml.Text{Voice: voice},
 		func(s string) (string, error) { return s, nil })
 	if err != nil {
-		return nil, fmt.Errorf("can't parse: %v", err)
+		return nil, fmt.Errorf("can't parse: %w", err)
 	}
 
 	var res []string
@@ -108,7 +106,7 @@ func (w *Worker) doSSML(text string, voice string, speed float64) ([]string, err
 					cParts, cPart, cLen = nil, nil, 0
 				}
 				if cPart == nil {
-					cPart = &ssml.Text{Texts: []ssml.TextPart{}, Voice: sp.Voice} // Speed: sp.Speed
+					cPart = &ssml.Text{Texts: []ssml.TextPart{}, Voice: sp.Voice, Prosodies: sp.Prosodies} // Speed: sp.Speed
 
 					cParts = append(cParts, cPart)
 				}
@@ -151,7 +149,8 @@ func saveToSSMLString(cParts []ssml.Part) string {
 		switch sp := part.(type) {
 		case *ssml.Text:
 			// todo speed
-			res.WriteString(fmt.Sprintf(`<voice name="%s"><prosody rate="%s">`, sp.Voice, toRateStr(1)))
+			startVoice(&res, sp.Voice)
+			startProsodies(&res, sp.Prosodies)
 			for _, tp := range sp.Texts {
 				if tp.Accented != "" {
 					res.WriteString(`<intelektika:w acc="`)
@@ -170,11 +169,16 @@ func saveToSSMLString(cParts []ssml.Part) string {
 					res.WriteString(`>`)
 					_ = xml.EscapeText(&res, []byte(tp.Text))
 					res.WriteString(`</intelektika:w>`)
+				} else if tp.Language != "" {
+					res.WriteString(fmt.Sprintf(`<lang lang="%s">`, tp.Language))
+					_ = xml.EscapeText(&res, []byte(strings.TrimLeft(tp.Text, " ")))
+					res.WriteString(`</lang>`)
 				} else {
 					_ = xml.EscapeText(&res, []byte(strings.TrimLeft(tp.Text, " ")))
 				}
 			}
-			res.WriteString(`</prosody></voice>`)
+			endProsodies(&res, sp.Prosodies)
+			endVoice(&res, sp.Voice)
 		case *ssml.Pause:
 			res.WriteString(fmt.Sprintf(`<break time="%dms"/>`, sp.Duration.Milliseconds()))
 		default:
@@ -183,6 +187,69 @@ func saveToSSMLString(cParts []ssml.Part) string {
 	}
 	res.WriteString("</speak>")
 	return res.String()
+}
+
+func endVoice(res *strings.Builder, s string) {
+	if s == "" {
+		return
+	}
+	res.WriteString(`</voice>`)
+}
+
+func endProsodies(res *strings.Builder, prosody []*ssml.Prosody) {
+	for _, p := range prosody {
+		endProsody(res, p)
+	}
+}
+
+func endProsody(res *strings.Builder, prosody *ssml.Prosody) {
+	if prosody.Emphasis != ssml.EmphasisTypeUnset {
+		res.WriteString(`</emphasis>`)
+	} else {
+		res.WriteString(`</prosody>`)
+	}
+}
+
+func startProsodies(res *strings.Builder, prosody []*ssml.Prosody) {
+	for _, p := range prosody {
+		startProsody(res, p)
+	}
+}
+
+func startProsody(res *strings.Builder, prosody *ssml.Prosody) {
+	if prosody.Emphasis != ssml.EmphasisTypeUnset {
+		res.WriteString(fmt.Sprintf(`<emphasis level="%s">`, emphasisTypeToString(prosody.Emphasis)))
+		return
+	}
+	res.WriteString(`<prosody`)
+	if prosody.Rate != 0 {
+		res.WriteString(fmt.Sprintf(` rate="%s"`, toRateStr(float32(prosody.Rate))))
+	}
+	if prosody.Volume != 0 {
+		vol := fmt.Sprintf("%.2fdB", prosody.Volume)
+		if prosody.Volume <= ssml.MinVolumeChange {
+			vol = "silent"
+		}
+		res.WriteString(fmt.Sprintf(` volume="%s"`, vol))
+	}
+	if prosody.Pitch.Kind != ssml.PitchChangeNone {
+		switch prosody.Pitch.Kind {
+		case ssml.PitchChangeHertz:
+			res.WriteString(fmt.Sprintf(` pitch="%+.2fHz"`, prosody.Pitch.Value))
+		case ssml.PitchChangeMultiplier:
+			res.WriteString(fmt.Sprintf(` pitch="%+.2f%%"`, (prosody.Pitch.Value-1)*100))
+		case ssml.PitchChangeSemitone:
+			res.WriteString(fmt.Sprintf(` pitch="%+.2fst"`, prosody.Pitch.Value))
+		}
+	}
+	res.WriteString(`>`)
+}
+
+func startVoice(res *strings.Builder, s string) {
+	if s == "" {
+		return
+	}
+	res.WriteString(fmt.Sprintf(`<voice name="%s">`, s))
 }
 
 func toRateStr(f float32) string {
@@ -324,17 +391,32 @@ func (pl *partRemaining) getPartsTo(pos int) []*ssml.TextPart {
 			if pl.pText == 0 {
 				res = append(res, &p) // add whole part
 			} else {
-				res = append(res, &ssml.TextPart{Text: p.Text[pl.pText:]})
+				res = append(res, &ssml.TextPart{Text: p.Text[pl.pText:], Language: p.Language})
 			}
 			from += cLen - pl.pText + 1 // +1 for end space
 			pl.pText = 0
 			pl.pPart++
 		} else {
 			to := pos - from + pl.pText
-			res = append(res, &ssml.TextPart{Text: p.Text[pl.pText:to]})
+			res = append(res, &ssml.TextPart{Text: p.Text[pl.pText:to], Language: p.Language})
 			from += to - pl.pText
 			pl.pText += to - pl.pText
 		}
 	}
 	return res
+}
+
+func emphasisTypeToString(et ssml.EmphasisType) string {
+	switch et {
+	case ssml.EmphasisTypeReduced:
+		return "reduced"
+	case ssml.EmphasisTypeNone:
+		return "none"
+	case ssml.EmphasisTypeModerate:
+		return "moderate"
+	case ssml.EmphasisTypeStrong:
+		return "strong"
+	default:
+		return ""
+	}
 }
