@@ -197,8 +197,9 @@ func endVoice(res *strings.Builder, s string) {
 }
 
 func endProsodies(res *strings.Builder, prosody []*ssml.Prosody) {
-	for _, p := range prosody {
-		endProsody(res, p)
+	l := len(prosody)
+	for i := range prosody {
+		endProsody(res, prosody[l-1-i])
 	}
 }
 

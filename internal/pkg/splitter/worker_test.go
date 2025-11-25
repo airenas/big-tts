@@ -211,6 +211,9 @@ func Test_saveToSSMLString(t *testing.T) {
 		{name: "Lang", args: []ssml.Part{&ssml.Text{Texts: []ssml.TextPart{{Text: "olia", Language: "en"}, {Text: "olia1", Language: "en"}, {Text: "olia"}},
 			Prosodies: []*ssml.Prosody{{Rate: 1}}, Voice: "as"}},
 			want: `<speak><voice name="as"><prosody rate="100%"><lang lang="en">olia</lang><lang lang="en">olia1</lang>olia</prosody></voice></speak>`},
+		{name: "Prosody + emphasis", args: []ssml.Part{&ssml.Text{Texts: []ssml.TextPart{{Text: "olia"}},
+			Prosodies: []*ssml.Prosody{{Rate: 1}, {Emphasis: ssml.EmphasisTypeModerate}}, Voice: "as"}},
+			want: `<speak><voice name="as"><prosody rate="100%"><emphasis level="moderate">olia</emphasis></prosody></voice></speak>`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
