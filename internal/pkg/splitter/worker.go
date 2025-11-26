@@ -387,19 +387,20 @@ func (pl *partRemaining) getPartsTo(pos int) []*ssml.TextPart {
 	for from < pos {
 		p := pl.texts[pl.pPart]
 		text := getPartText(&p)
+		textRunes := []rune(p.Text)
 		cLen := utf8.RuneCountInString(text)
 		if cLen-pl.pText <= pos-from {
 			if pl.pText == 0 {
 				res = append(res, &p) // add whole part
 			} else {
-				res = append(res, &ssml.TextPart{Text: p.Text[pl.pText:], Language: p.Language})
+				res = append(res, &ssml.TextPart{Text: string(textRunes[pl.pText:]), Language: p.Language})
 			}
 			from += cLen - pl.pText + 1 // +1 for end space
 			pl.pText = 0
 			pl.pPart++
 		} else {
 			to := pos - from + pl.pText
-			res = append(res, &ssml.TextPart{Text: p.Text[pl.pText:to], Language: p.Language})
+			res = append(res, &ssml.TextPart{Text: string(textRunes[pl.pText:to]), Language: p.Language})
 			from += to - pl.pText
 			pl.pText += to - pl.pText
 		}
