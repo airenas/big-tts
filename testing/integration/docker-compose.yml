@@ -76,7 +76,7 @@ services:
      - SMTP_PASSWORD=${SMTP_PASSWORD}
      - SMTP_HOST=${SMTP_HOST}
      - SMTP_PORT=${SMTP_PORT}
-     - SMTP_TYPE=LOGIN
+     - SMTP_TYPE=NO_AUTH
      - MAIL_URL=${MAIL_URL} 
     restart: on-failure      
 
