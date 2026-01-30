@@ -32,7 +32,7 @@ func main() {
 }
 
 func mainInt(ctx context.Context) error {
-	
+
 	data := &inform.ServiceData{}
 	cfg := goapp.Config
 

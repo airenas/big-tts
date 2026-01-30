@@ -152,6 +152,7 @@ func saveToSSMLString(cParts []ssml.Part) string {
 			startVoice(&res, sp.Voice)
 			startProsodies(&res, sp.Prosodies)
 			for _, tp := range sp.Texts {
+				startLanguage(&res, tp.Language)
 				if tp.Accented != "" {
 					res.WriteString(`<intelektika:w acc="`)
 					_ = xml.EscapeText(&res, []byte(tp.Accented))
@@ -169,13 +170,14 @@ func saveToSSMLString(cParts []ssml.Part) string {
 					res.WriteString(`>`)
 					_ = xml.EscapeText(&res, []byte(tp.Text))
 					res.WriteString(`</intelektika:w>`)
-				} else if tp.Language != "" {
-					res.WriteString(fmt.Sprintf(`<lang lang="%s">`, tp.Language))
+				} else if tp.InterpretAs != ssml.InterpretAsTypeUnset {
+					res.WriteString(fmt.Sprintf(`<say-as interpret-as="%s"%s>`, tp.InterpretAs.String(), makeInterpretAsDetail(tp.InterpretAsDetail)))
 					_ = xml.EscapeText(&res, []byte(strings.TrimLeft(tp.Text, " ")))
-					res.WriteString(`</lang>`)
+					res.WriteString(`</say-as>`)
 				} else {
 					_ = xml.EscapeText(&res, []byte(strings.TrimLeft(tp.Text, " ")))
 				}
+				endLanguage(&res, tp.Language)
 			}
 			endProsodies(&res, sp.Prosodies)
 			endVoice(&res, sp.Voice)
@@ -187,6 +189,13 @@ func saveToSSMLString(cParts []ssml.Part) string {
 	}
 	res.WriteString("</speak>")
 	return res.String()
+}
+
+func makeInterpretAsDetail(interpretAsDetailType ssml.InterpretAsDetailType) string {
+	if interpretAsDetailType == ssml.InterpretAsDetailTypeUnset {
+		return ""
+	}
+	return fmt.Sprintf(` detail="%s"`, interpretAsDetailType.String())
 }
 
 func endVoice(res *strings.Builder, s string) {
@@ -251,6 +260,20 @@ func startVoice(res *strings.Builder, s string) {
 		return
 	}
 	res.WriteString(fmt.Sprintf(`<voice name="%s">`, s))
+}
+
+func startLanguage(res *strings.Builder, s string) {
+	if s == "" {
+		return
+	}
+	res.WriteString(fmt.Sprintf(`<lang lang="%s">`, s))
+}
+
+func endLanguage(res *strings.Builder, s string) {
+	if s == "" {
+		return
+	}
+	res.WriteString(`</lang>`)
 }
 
 func toRateStr(f float32) string {

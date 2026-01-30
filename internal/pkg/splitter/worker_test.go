@@ -290,9 +290,35 @@ func TestWorker_doSSML(t *testing.T) {
 				`<speak><voice name="vd"><lang lang="en">asdfg</lang></voice></speak>`},
 			wantErr: false},
 		{name: "splits many words lang", wChars: 20, args: `<speak lang="en">asdfg asdfg ` +
-			`asdfg <lang lang="us">asdfg</lang> asdfg</speak>`,
-			want: []string{`<speak><voice name="vd"><lang lang="en">asdfg asdfg asdfg</lang><lang lang="us">asdfg</lang></voice></speak>`,
+			`asdfg <lang lang="en_US">asdfg</lang> asdfg</speak>`,
+			want: []string{`<speak><voice name="vd"><lang lang="en">asdfg asdfg asdfg</lang><lang lang="en">asdfg</lang></voice></speak>`,
 				`<speak><voice name="vd"><lang lang="en">asdfg</lang></voice></speak>`},
+			wantErr: false},
+
+		{name: "say-as", wChars: 20, args: `<speak lang="en">` +
+			`asdfg asdfg asdfg <say-as interpret-as="characters">asdfg</say-as> asdfg</speak>`,
+			want: []string{`<speak><voice name="vd"><lang lang="en">asdfg asdfg asdfg</lang><lang lang="en"><say-as interpret-as="characters">asdfg</say-as></lang></voice></speak>`,
+				`<speak><voice name="vd"><lang lang="en">asdfg</lang></voice></speak>`},
+			wantErr: false},
+		{name: "say-as detail", wChars: 20, args: `<speak lang="en">` +
+			`asdfg asdfg asdfg <say-as interpret-as="characters" detail="read-symbols">asdfg</say-as> asdfg</speak>`,
+			want: []string{`<speak><voice name="vd"><lang lang="en">asdfg asdfg asdfg</lang><lang lang="en"><say-as interpret-as="characters" detail="read-symbols">asdfg</say-as></lang></voice></speak>`,
+				`<speak><voice name="vd"><lang lang="en">asdfg</lang></voice></speak>`},
+			wantErr: false},
+		{name: "say-as language", wChars: 20, args: `<speak> <lang lang="en">` +
+			`asdfg asdfg <say-as interpret-as="characters" detail="read-symbols">asdfg,{/}</say-as> as asdfg</lang></speak>`,
+			want: []string{`<speak><voice name="vd"><lang lang="en">asdfg asdfg</lang><lang lang="en"><say-as interpret-as="characters" detail="read-symbols">asdfg,{/}</say-as></lang></voice></speak>`,
+				`<speak><voice name="vd"><lang lang="en">as asdfg</lang></voice></speak>`},
+			wantErr: false},
+		{name: "say-as one language", wChars: 20, args: `<speak><lang lang="en">` +
+			`<say-as interpret-as="characters" detail="read-symbols">asdfg,{/}</say-as> 
+			</lang></speak>`,
+			want:    []string{`<speak><voice name="vd"><lang lang="en"><say-as interpret-as="characters" detail="read-symbols">asdfg,{/}</say-as></lang></voice></speak>`},
+			wantErr: false},
+		{name: "say-as no language", wChars: 20, args: `<speak>` +
+			`<say-as interpret-as="characters" detail="read-symbols">asdfg,{/}</say-as> 
+			</speak>`,
+			want:    []string{`<speak><voice name="vd"><say-as interpret-as="characters" detail="read-symbols">asdfg,{/}</say-as></voice></speak>`},
 			wantErr: false},
 	}
 	for _, tt := range tests {
