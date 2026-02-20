@@ -203,7 +203,7 @@ func (w *Worker) invokeRemote(ctx context.Context, dataIn input, dataOut *result
 	}
 	req, err := http.NewRequest("POST", w.serviceURL, b)
 	if err != nil {
-		return errors.Wrapf(err, "can't prepare request to '%s'", w.serviceURL)
+		return fmt.Errorf("prepare request to '%s': %w", w.serviceURL, err)
 	}
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.Header.Set(echo.HeaderAccept, echo.MIMEApplicationMsgpack)
@@ -217,14 +217,14 @@ func (w *Worker) invokeRemote(ctx context.Context, dataIn input, dataOut *result
 	log.Ctx(ctx).Info().Str("url", goapp.Sanitize(req.URL.String())).Msg("Call")
 	resp, err := w.httpClient.Do(req)
 	if err != nil {
-		return errors.Wrapf(err, "can't call '%s'", req.URL.String())
+		return fmt.Errorf("call '%s': %w", req.URL.String(), err)
 	}
 	defer func() {
 		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 10000))
 		_ = resp.Body.Close()
 	}()
-	if err := goapp.ValidateHTTPResp(resp, 100); err != nil {
-		err = errors.Wrapf(err, "can't invoke '%s'", req.URL.String())
+	if err := validateHTTPResp(resp, 100); err != nil {
+		err = fmt.Errorf("invoke '%s': %w", req.URL.String(), err)
 		if isNonRestorableErrCode(resp.StatusCode) {
 			return utils.NewErrNonRestorableUsage(err)
 		}
@@ -232,6 +232,24 @@ func (w *Worker) invokeRemote(ctx context.Context, dataIn input, dataOut *result
 	}
 
 	return w.unmarshalResponse(ctx, resp, dataOut)
+}
+
+func validateHTTPResp(resp *http.Response, takeChars int) error {
+	err := goapp.ValidateHTTPResp(resp, takeChars)
+	if err != nil {
+		traceID := getTraceID(resp)
+		if traceID != "" {
+			err = errors.Wrap(err, "traceID: "+traceID)
+		}
+	}
+	return err
+}
+
+func getTraceID(resp *http.Response) string {
+	if resp == nil {
+		return ""
+	}
+	return resp.Header.Get("traceparent")
 }
 
 func (w *Worker) unmarshalResponse(ctx context.Context, resp *http.Response, dataOut *result) error {

@@ -132,12 +132,12 @@ func listenQueue(ctx context.Context, q <-chan amqp.Delivery, f prFunc, data *Se
 	for {
 		select {
 		case <-ctx.Done():
-			log.Ctx(ctx).Info().Msgf("Exit queue func")
+			log.Ctx(ctx).Info().Msg("Exit queue func")
 			return
 		case d, ok := <-q:
 			{
 				if !ok {
-					log.Ctx(ctx).Info().Msgf("Stopped listening queue")
+					log.Ctx(ctx).Info().Msg("Stopped listening queue")
 					return
 				}
 				err := processMsg(ctx, &d, f, data)
